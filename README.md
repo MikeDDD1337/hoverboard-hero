@@ -15,7 +15,7 @@ Nach dem Start wählst du deine Figur. Alle spielen sich gleich, nur der Look is
 | Figur | Look |
 |---|---|
 | Louie | Blonde Haare, blaue Cap, rotes Hoodie, cyan Board |
-| Lina | Blonder Pferdeschwanz, pinkes Stirnband, lila Jacke, pinkes Board |
+| Lina | Blonder Pferdeschwanz, pinke Cap, lila Jacke, pinkes Board |
 | Noah | Locken, grüne Mütze, gelbes Hoodie, grünes Board |
 | Aylin | Lange schwarze Haare, türkises Hoodie, oranges Board |
 | Jonas | Rote Stachelhaare, roter Helm, grünes Shirt, gelbes Board |
