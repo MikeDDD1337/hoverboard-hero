@@ -1,12 +1,27 @@
 # Hoverboard Hero
 
-Ein 2D-Side-Scroller für den Handy-Browser: Ein Junge fliegt auf seinem Hoverboard durch die Grossstadt und stoppt mit seinem Dart-Blaster eine Alien-Invasion.
+Ein 2D-Side-Scroller für den Handy-Browser: Du wählst eines von sechs Kids, fliegst auf dem Hoverboard durch die Grossstadt und stoppst mit dem Dart-Blaster eine Alien-Invasion.
 
 Das ganze Spiel steckt in einer einzigen Datei (`index.html`) und braucht keine Engine, keine Bilder und keinen Build-Schritt. Grafik und Sound werden im Browser erzeugt (Canvas und WebAudio).
 
 ## Spielen
 
 `index.html` im Browser öffnen, am besten auf dem Handy im Querformat. Mit GitHub Pages (Settings → Pages → Branch `main`, Ordner `/`) wird das Spiel unter einer öffentlichen Adresse spielbar.
+
+## Figuren
+
+Nach dem Start wählst du deine Figur. Alle spielen sich gleich, nur der Look ist anders. Die Auswahl wird im Browser gespeichert und kann nach jedem Game Over über „Figur wechseln“ geändert werden.
+
+| Figur | Look |
+|---|---|
+| Louie | Blonde Haare, blaue Cap, rotes Hoodie, cyan Board |
+| Lina | Blonder Pferdeschwanz, pinkes Stirnband, lila Jacke, pinkes Board |
+| Noah | Locken, grüne Mütze, gelbes Hoodie, grünes Board |
+| Aylin | Lange schwarze Haare, türkises Hoodie, oranges Board |
+| Jonas | Rote Stachelhaare, roter Helm, grünes Shirt, gelbes Board |
+| Zoe | Zwei Afro-Puffs, oranges Shirt, lila Board |
+
+In der Auswahl: Karte antippen zum Wählen, nochmal antippen oder „LOS!“ zum Starten. Mit der Tastatur: Pfeiltasten und Enter.
 
 ## Steuerung
 

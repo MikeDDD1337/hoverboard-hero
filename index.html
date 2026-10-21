@@ -178,6 +178,21 @@ let boss = null, bossClock = 0, bossWarn = 0, bossCount = 0;
 let spawnT = 1.5, obsT = 9, shake = 0, hurtFlash = 0;
 const P = { x: 200, y: 270, lives: 3, inv: 0, fireCd: 0, power: null, powerT: 0, shield: 0, tilt: 0, bob: 0 };
 const target = { x: 200, y: 270 };
+const KIDS = [
+  { name: 'Louie', skin: '#f2c39b', hair: '#f2cf5b', style: 'short', hat: 'cap', hatCol: '#2f7bff', top: '#e8433a', topDk: '#c4302a', pants: '#2f4a8a', shoes: '#f4f4f4', board: '#1d2b4f', glow: '#4ff0ff', glowRGB: '79,240,255' },
+  { name: 'Lina', skin: '#f5cfae', hair: '#f6d77a', style: 'ponytail', hat: 'band', hatCol: '#ff4fa3', top: '#8e5bd6', topDk: '#6c3fb0', pants: '#2b2350', shoes: '#ff9fd0', board: '#3a1f4a', glow: '#ff6fb5', glowRGB: '255,111,181' },
+  { name: 'Noah', skin: '#7a4a2a', hair: '#1f1410', style: 'curly', hat: 'beanie', hatCol: '#3fbf5a', top: '#ffc531', topDk: '#d99a12', pants: '#3a3d55', shoes: '#e8433a', board: '#1f3a2a', glow: '#7dff6a', glowRGB: '125,255,106' },
+  { name: 'Aylin', skin: '#c99068', hair: '#1a1220', style: 'long', hat: 'none', top: '#1fb5a8', topDk: '#14857b', pants: '#2b2350', shoes: '#fff6e8', board: '#4a2a12', glow: '#ff8a1f', glowRGB: '255,138,31' },
+  { name: 'Jonas', skin: '#f2c8a5', hair: '#d9541e', style: 'spiky', hat: 'helmet', hatCol: '#e8433a', top: '#4caf50', topDk: '#357a38', pants: '#5a4630', shoes: '#2f2f3a', board: '#4a3a10', glow: '#ffd23f', glowRGB: '255,210,63' },
+  { name: 'Zoe', skin: '#5c3520', hair: '#1a100c', style: 'puffs', hat: 'none', top: '#ff8a1f', topDk: '#d96a0a', pants: '#2f4a8a', shoes: '#ffd23f', board: '#2c1a4a', glow: '#b26bff', glowRGB: '178,107,255' },
+];
+let kidIdx = 0;
+try { kidIdx = clamp(parseInt(localStorage.getItem('hh-kid') || '0', 10) || 0, 0, KIDS.length - 1); } catch (e) {}
+function setKid(i) {
+  kidIdx = (i + KIDS.length) % KIDS.length;
+  try { localStorage.setItem('hh-kid', String(kidIdx)); } catch (e) {}
+  tone(660, 0.08, 'triangle', 0.08, 990);
+}
 const mult = () => Math.min(5, 1 + Math.floor(combo / 4));
 
 function reset() {
@@ -206,6 +221,12 @@ const pointers = new Map();
 let mouseDown = false;
 const BTN = () => ({ pause: { x: W - 62, y: 14, w: 46, h: 46 }, mute: { x: W - 116, y: 14, w: 46, h: 46 } });
 const FIRE = () => ({ x: W - 96, y: H - 96, r: 54 });
+function selectLayout() {
+  const gap = 18, cw = Math.min(220, (W - 120 - gap * 2) / 3), ch = 166, x0 = (W - cw * 3 - gap * 2) / 2, y0 = 96;
+  const cards = KIDS.map((k, i) => ({ x: x0 + (i % 3) * (cw + gap), y: y0 + Math.floor(i / 3) * (ch + gap), w: cw, h: ch }));
+  return { cards, go: { x: W / 2 - 110, y: 474, w: 220, h: 50 } };
+}
+const SWITCH = () => ({ x: W / 2 - 125, y: 396, w: 250, h: 46 });
 const inBox = (p, b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
 function toLogical(e) { const r = cvs.getBoundingClientRect(); return { x: (e.clientX - r.left - ox) / sc, y: (e.clientY - r.top - oy) / sc }; }
 function clampTarget() { target.x = clamp(target.x, 46, W * 0.62); target.y = clamp(target.y, 72, 466); }
@@ -214,8 +235,14 @@ cvs.addEventListener('pointerdown', e => {
   e.preventDefault(); ensureAudio();
   const p = toLogical(e), b = BTN();
   if (inBox(p, b.mute)) { setMuted(!muted); return; }
-  if (state === 'title') { startGame(); return; }
-  if (state === 'over') { if (overT > 0.9) startGame(); return; }
+  if (state === 'title') { state = 'select'; return; }
+  if (state === 'select') {
+    const L = selectLayout(), i = L.cards.findIndex(c => inBox(p, c));
+    if (inBox(p, L.go) || (i >= 0 && i === kidIdx)) startGame();
+    else if (i >= 0) setKid(i);
+    return;
+  }
+  if (state === 'over') { if (overT > 0.9) { if (inBox(p, SWITCH())) state = 'select'; else startGame(); } return; }
   if (state === 'pause') { state = 'play'; return; }
   if (inBox(p, b.pause)) { state = 'pause'; pointers.clear(); mouseDown = false; return; }
   if (e.pointerType === 'mouse') { mouseDown = true; target.x = p.x; target.y = p.y; clampTarget(); return; }
@@ -240,7 +267,12 @@ window.addEventListener('keydown', e => {
   if (KEYMAP[e.code]) { keys[KEYMAP[e.code]] = true; e.preventDefault(); }
   if (e.code === 'KeyM') setMuted(!muted);
   if (e.code === 'KeyP' || e.code === 'Escape') { if (state === 'play') state = 'pause'; else if (state === 'pause') state = 'play'; }
-  if ((e.code === 'Enter' || e.code === 'Space') && (state === 'title' || (state === 'over' && overT > 0.9))) startGame();
+  const go = e.code === 'Enter' || e.code === 'Space';
+  if (state === 'select') {
+    const step = { ArrowLeft: -1, KeyA: -1, ArrowRight: 1, KeyD: 1, ArrowUp: -3, KeyW: -3, ArrowDown: 3, KeyS: 3 }[e.code];
+    if (step) setKid(kidIdx + step); else if (go) startGame();
+  } else if (state === 'title' && go) state = 'select';
+  else if (state === 'over' && overT > 0.9) { if (go) startGame(); else if (e.code === 'KeyC') state = 'select'; }
 });
 window.addEventListener('keyup', e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') state = 'pause'; });
@@ -389,11 +421,12 @@ function update(dt) {
   texts = texts.filter(t => t.life > 0);
   shake = Math.max(0, shake - dt * 40); hurtFlash = Math.max(0, hurtFlash - dt);
 
-  if (state !== 'over' && Math.random() < 0.9) {
-    parts.push({ x: P.x + rand(-28, 28), y: P.y + 36 + P.bob, vx: -scroll * 0.6 + rand(-20, 20), vy: rand(10, 50), life: rand(0.2, 0.45), max: 0.45, size: rand(2, 4.5), color: pick(['#4ff0ff', '#9ff7ff', '#2f7bff']), grav: 0 });
+  if (state !== 'over' && state !== 'select' && Math.random() < 0.9) {
+    parts.push({ x: P.x + rand(-28, 28), y: P.y + 36 + P.bob, vx: -scroll * 0.6 + rand(-20, 20), vy: rand(10, 50), life: rand(0.2, 0.45), max: 0.45, size: rand(2, 4.5), color: pick([KIDS[kidIdx].glow, KIDS[kidIdx].glow, '#ffffff']), grav: 0 });
   }
 
   if (state === 'title') { P.x = 220 + Math.sin(clock * 0.7) * 30; P.y = 300 + Math.sin(clock * 1.3) * 34; P.tilt = Math.cos(clock * 1.3) * 0.08; return; }
+  if (state === 'select') return;
   if (state === 'over') { overT += dt; return; }
 
   // --- play ---
@@ -600,44 +633,79 @@ function drawCity(haze) {
   }
 }
 function drawPlayer() {
+  const k = KIDS[kidIdx];
   ctx.save(); ctx.translate(P.x, P.y + P.bob); ctx.rotate(P.tilt);
   if (P.inv > 0 && state === 'play' && Math.floor(P.inv * 12) % 2 === 0) ctx.globalAlpha = 0.4;
-  const g = ctx.createRadialGradient(0, 32, 2, 0, 32, 50);
-  g.addColorStop(0, 'rgba(79,240,255,0.6)'); g.addColorStop(1, 'rgba(79,240,255,0)');
-  ctx.fillStyle = g; ctx.fillRect(-55, 6, 110, 56);
-  // board
-  ctx.fillStyle = '#1d2b4f'; rr(ctx, -38, 24, 76, 9, 5); ctx.fill();
-  ctx.fillStyle = '#4ff0ff'; rr(ctx, -30, 32, 60, 3, 1.5); ctx.fill();
-  ctx.fillStyle = '#ff8a1f'; ctx.fillRect(-22, 26, 16, 3); ctx.fillRect(10, 26, 8, 3);
-  // legs
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#2f4a8a'; ctx.lineWidth = 7;
-  ctx.beginPath(); ctx.moveTo(-5, 2); ctx.lineTo(-14, 13); ctx.lineTo(-12, 22); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(5, 2); ctx.lineTo(13, 12); ctx.lineTo(11, 22); ctx.stroke();
-  ctx.fillStyle = '#f4f4f4'; rr(ctx, -19, 19, 13, 6, 3); ctx.fill(); rr(ctx, 6, 19, 13, 6, 3); ctx.fill();
-  // hoodie
-  ctx.fillStyle = '#e8433a'; rr(ctx, -12, -23, 24, 28, 8); ctx.fill();
-  ctx.fillStyle = '#c4302a'; ctx.fillRect(-7, -6, 14, 5);
-  ctx.fillStyle = '#c4302a'; ctx.beginPath(); ctx.arc(-6, -22, 7, Math.PI, 0); ctx.fill();
-  // head
-  ctx.fillStyle = '#f2c39b'; ctx.beginPath(); ctx.arc(2, -33, 11, 0, 7); ctx.fill();
-  ctx.fillStyle = '#5a3a22'; ctx.beginPath(); ctx.arc(-6, -31, 5, 0, 7); ctx.fill();
-  ctx.fillStyle = '#2f7bff'; ctx.beginPath(); ctx.arc(2, -35, 11.5, Math.PI, 0); ctx.fill();
-  rr(ctx, 8, -37, 15, 4, 2); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.fillRect(-2, -44, 6, 3);
-  ctx.fillStyle = '#1a1230'; ctx.beginPath(); ctx.arc(8.5, -32, 1.7, 0, 7); ctx.fill();
-  ctx.strokeStyle = '#1a1230'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(8, -28, 3, 0.2, 1.4); ctx.stroke();
-  // arm + dart blaster
-  ctx.strokeStyle = '#e8433a'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(15, -10); ctx.stroke();
-  ctx.fillStyle = '#ff8a1f'; rr(ctx, 12, -18, 28, 11, 3); ctx.fill();
-  ctx.fillStyle = '#ffd23f'; ctx.fillRect(38, -16, 9, 7); ctx.fillRect(18, -21, 12, 3);
-  ctx.fillStyle = '#2f7bff'; rr(ctx, 16, -9, 7, 10, 2); ctx.fill();
-  ctx.fillStyle = '#f2c39b'; ctx.beginPath(); ctx.arc(17, -9, 3.5, 0, 7); ctx.fill();
+  drawBoardGlow(k);
+  drawKid(k);
   ctx.restore();
   if (P.shield > 0 && state === 'play') {
     const a = P.shield < 2 ? 0.3 + 0.3 * Math.sin(clock * 20) : 0.55;
     ctx.strokeStyle = `rgba(79,240,255,${a})`; ctx.lineWidth = 3; ctx.fillStyle = `rgba(79,240,255,${a * 0.25})`;
     ctx.beginPath(); ctx.ellipse(P.x + 4, P.y - 4 + P.bob, 50, 52, 0, 0, 7); ctx.fill(); ctx.stroke();
   }
+}
+function drawBoardGlow(k) {
+  const g = ctx.createRadialGradient(0, 32, 2, 0, 32, 50);
+  g.addColorStop(0, `rgba(${k.glowRGB},0.6)`); g.addColorStop(1, `rgba(${k.glowRGB},0)`);
+  ctx.fillStyle = g; ctx.fillRect(-55, 6, 110, 56);
+}
+function circ(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+// Draws a kid on the hoverboard around the current origin, facing right (board at y≈28, head at y≈-33).
+function drawKid(k) {
+  // board
+  ctx.fillStyle = k.board; rr(ctx, -38, 24, 76, 9, 5); ctx.fill();
+  ctx.fillStyle = k.glow; rr(ctx, -30, 32, 60, 3, 1.5); ctx.fill();
+  ctx.fillStyle = k.top; ctx.fillRect(-22, 26, 16, 3); ctx.fillRect(10, 26, 8, 3);
+  // legs
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = k.pants; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.moveTo(-5, 2); ctx.lineTo(-14, 13); ctx.lineTo(-12, 22); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(5, 2); ctx.lineTo(13, 12); ctx.lineTo(11, 22); ctx.stroke();
+  ctx.fillStyle = k.shoes; rr(ctx, -19, 19, 13, 6, 3); ctx.fill(); rr(ctx, 6, 19, 13, 6, 3); ctx.fill();
+  // hair behind the head
+  ctx.fillStyle = k.hair;
+  if (k.style === 'ponytail') { ctx.beginPath(); ctx.ellipse(-15, -27 + Math.sin(clock * 6) * 2, 5, 10, 0.5 + Math.sin(clock * 6) * 0.15, 0, 7); ctx.fill(); }
+  else if (k.style === 'long') { rr(ctx, -12, -40, 15, 30, 6); ctx.fill(); }
+  else if (k.style === 'curly') { circ(-7, -36, 6); circ(-9, -28, 5); circ(-4, -42, 6); }
+  else if (k.style === 'spiky') { ctx.beginPath(); ctx.moveTo(-6, -40); ctx.lineTo(-19, -42); ctx.lineTo(-9, -34); ctx.lineTo(-20, -31); ctx.lineTo(-8, -27); ctx.closePath(); ctx.fill(); }
+  else if (k.style === 'puffs') { circ(-6, -45, 8); circ(11, -46, 7.5); }
+  // top (hoodie / jacket / shirt)
+  ctx.fillStyle = k.top; rr(ctx, -12, -23, 24, 28, 8); ctx.fill();
+  ctx.fillStyle = k.topDk; ctx.fillRect(-7, -6, 14, 5);
+  if (k.style !== 'long') { ctx.beginPath(); ctx.arc(-6, -22, 7, Math.PI, 0); ctx.fill(); }
+  // head
+  ctx.fillStyle = k.skin; circ(2, -33, 11);
+  ctx.fillStyle = k.hair;
+  if (k.style === 'short') circ(-6, -31, 5);
+  if (k.hat !== 'cap' && k.hat !== 'helmet') { ctx.beginPath(); ctx.arc(2, -35, 11.5, Math.PI, 0); ctx.fill(); }
+  if (k.style === 'long') { ctx.beginPath(); ctx.moveTo(-9, -40); ctx.quadraticCurveTo(6, -46, 13, -36); ctx.lineTo(4, -38); ctx.closePath(); ctx.fill(); }
+  if (k.style === 'curly') { circ(5, -44, 5.5); circ(11, -40, 4.5); }
+  // headwear
+  if (k.hat === 'cap') {
+    ctx.fillStyle = k.hatCol; ctx.beginPath(); ctx.arc(2, -35, 11.5, Math.PI, 0); ctx.fill();
+    rr(ctx, 8, -37, 15, 4, 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.fillRect(-2, -44, 6, 3);
+  } else if (k.hat === 'band') {
+    ctx.strokeStyle = k.hatCol; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(2, -34, 11, Math.PI * 1.02, -0.15); ctx.stroke();
+  } else if (k.hat === 'beanie') {
+    ctx.fillStyle = k.hatCol; ctx.beginPath(); ctx.arc(2, -36, 12, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#2b8a42'; rr(ctx, -10.5, -38, 25, 5, 2); ctx.fill();
+    ctx.fillStyle = '#fff6e8'; circ(2, -49, 3.5);
+  } else if (k.hat === 'helmet') {
+    ctx.fillStyle = k.hatCol; ctx.beginPath(); ctx.arc(2, -35, 13, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#fff6e8'; ctx.fillRect(-1, -48, 5, 12);
+    ctx.fillStyle = '#1a1230'; rr(ctx, -11, -36, 27, 3.5, 1.5); ctx.fill();
+  }
+  // face
+  ctx.fillStyle = '#fff'; circ(8.5, -32, 2.7);
+  ctx.fillStyle = '#1a1230'; circ(9.2, -32, 1.6);
+  ctx.strokeStyle = '#1a1230'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(8, -28, 3, 0.2, 1.4); ctx.stroke();
+  // arm + dart blaster (same blaster for every kid)
+  ctx.strokeStyle = k.top; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(15, -10); ctx.stroke();
+  ctx.fillStyle = '#ff8a1f'; rr(ctx, 12, -18, 28, 11, 3); ctx.fill();
+  ctx.fillStyle = '#ffd23f'; ctx.fillRect(38, -16, 9, 7); ctx.fillRect(18, -21, 12, 3);
+  ctx.fillStyle = '#2f7bff'; rr(ctx, 16, -9, 7, 10, 2); ctx.fill();
+  ctx.fillStyle = k.skin; circ(17, -9, 3.5);
 }
 function drawDart(d) {
   ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(Math.atan2(d.vy, d.vx));
@@ -918,7 +986,39 @@ function drawOver() {
   textOut('Punkte: ' + score.toLocaleString('de-CH'), W / 2, 240, 30, '#fff6e8', FONT_B, 'center');
   if (newBest) textOut('NEUER REKORD!', W / 2, 284, 26, '#ffd23f', FONT_D, 'center');
   else textOut('Rekord: ' + best.toLocaleString('de-CH'), W / 2, 280, 20, '#d9cfff', FONT_B, 'center');
-  if (overT > 0.9) { ctx.globalAlpha = 0.6 + 0.4 * Math.sin(clock * 4); textOut('Tippen für eine neue Runde', W / 2, 360, 24, '#4ff0ff', FONT_D, 'center'); ctx.globalAlpha = 1; }
+  if (overT > 0.9) {
+    ctx.globalAlpha = 0.6 + 0.4 * Math.sin(clock * 4); textOut('Tippen für eine neue Runde', W / 2, 360, 24, '#4ff0ff', FONT_D, 'center'); ctx.globalAlpha = 1;
+    const b = SWITCH();
+    ctx.fillStyle = 'rgba(26,18,48,0.8)'; rr(ctx, b.x, b.y, b.w, b.h, 12); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,246,232,0.5)'; ctx.lineWidth = 2; ctx.stroke();
+    textOut('Figur wechseln', W / 2, b.y + 31, 20, '#fff6e8', FONT_B, 'center');
+  }
+}
+function drawSelect() {
+  dim(0.5);
+  textOut('WÄHLE DEINE FIGUR', W / 2, 70, 34, '#ffd23f', FONT_D, 'center');
+  const L = selectLayout();
+  KIDS.forEach((k, i) => {
+    const c = L.cards[i], on = i === kidIdx;
+    ctx.save();
+    if (on) { ctx.shadowColor = k.glow; ctx.shadowBlur = 18; }
+    ctx.fillStyle = on ? 'rgba(40,28,74,0.92)' : 'rgba(26,18,48,0.78)'; rr(ctx, c.x, c.y, c.w, c.h, 16); ctx.fill();
+    ctx.strokeStyle = on ? k.glow : 'rgba(255,246,232,0.22)'; ctx.lineWidth = on ? 4 : 2; ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(c.x + c.w / 2 - 6, c.y + 80 + Math.sin(clock * 4 + i) * (on ? 4 : 2));
+    ctx.scale(1.2, 1.2);
+    drawBoardGlow(k); drawKid(k);
+    ctx.restore();
+    textOut(k.name, c.x + c.w / 2, c.y + c.h - 14, 22, on ? k.glow : '#fff6e8', FONT_D, 'center');
+  });
+  const g = L.go, pulse = 1 + Math.sin(clock * 5) * 0.03;
+  ctx.save(); ctx.translate(W / 2, g.y + g.h / 2); ctx.scale(pulse, pulse);
+  ctx.fillStyle = '#ff8a1f'; rr(ctx, -g.w / 2, -g.h / 2, g.w, g.h, 14); ctx.fill();
+  ctx.strokeStyle = '#1a1230'; ctx.lineWidth = 3; ctx.stroke();
+  textOut('LOS!', 0, 11, 30, '#fff6e8', FONT_D, 'center');
+  ctx.restore();
+  const b = BTN(); drawButton(b.mute, 'mute');
 }
 function drawPause() {
   dim(0.5);
@@ -940,7 +1040,7 @@ function render() {
   if (boss) drawBoss();
   for (const p of parts) { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
   ctx.globalAlpha = 1;
-  if (state !== 'over') drawPlayer();
+  if (state !== 'over' && state !== 'select') drawPlayer();
   for (const d of darts) drawDart(d);
   for (const b of ebullets) {
     if (b.col === 'mine') { drawMine(b); continue; }
@@ -956,6 +1056,7 @@ function render() {
   if (state === 'play' || state === 'pause') drawHUD();
   if (state === 'title') drawTitle();
   else if (state === 'over') drawOver();
+  else if (state === 'select') drawSelect();
   else if (state === 'pause') drawPause();
 }
 
