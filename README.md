@@ -52,6 +52,16 @@ Nach der Figurenauswahl erzählen drei gezeichnete Szenen die Vorgeschichte, mit
 
 Antippen zeigt den Text sofort ganz bzw. blättert weiter. „Überspringen“ (oder Esc) startet direkt das Spiel. Nach einem Game Over startet „Nochmal“ ohne Intro.
 
+## Musik
+
+Die Musik wird wie die Soundeffekte direkt im Browser erzeugt (WebAudio-Sequencer, keine Audiodateien):
+
+- **Intro:** ruhige Lounge mit Rhodes-Akkorden (Dm9, G13, Cmaj9, Am9), gezupftem Bass, Besen-Beat und Vibraphon, 84 BPM.
+- **Spiel:** harter Acid Techno mit 138 BPM: Bassdrum, Rumble-Bass, Hi-Hats, Clap und eine 303-artige Acid-Linie mit Filter-Sweep. Alle 8 Takte wechselt das Muster. Bei Mutterschiffen öffnet sich das Filter und eine zweite Acid-Stimme kommt dazu.
+- In der Pause und im Beenden-Dialog wird die Musik leiser und dumpfer, bei Game Over blendet sie aus.
+
+Der Lautsprecher-Knopf schaltet Musik und Effekte gemeinsam stumm.
+
 ## Steuerung
 
 | | Handy | Computer |
@@ -59,6 +69,7 @@ Antippen zeigt den Text sofort ganz bzw. blättert weiter. „Überspringen“ (
 | Fliegen | Linke Bildschirmhälfte: Daumen ziehen | Maus bewegen oder WASD / Pfeiltasten |
 | Schiessen | Rechte Bildschirmhälfte: gedrückt halten | Klicken oder Leertaste |
 | Pause | Pause-Knopf oben rechts | P oder Esc |
+| Runde beenden | ✕-Knopf oben rechts, dann „Beenden“ | Q, dann Klick auf „Beenden“ |
 | Ton an/aus | Lautsprecher-Knopf | M |
 
 ## Inhalt
