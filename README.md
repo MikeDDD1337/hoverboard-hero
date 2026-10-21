@@ -1,6 +1,6 @@
 # Hoverboard Hero
 
-Ein 2D-Side-Scroller für den Handy-Browser: Ein Junge fliegt auf seinem Hoverboard durch die Grossstadt und stoppt mit seiner Nerv-Gun eine Alien-Invasion.
+Ein 2D-Side-Scroller für den Handy-Browser: Ein Junge fliegt auf seinem Hoverboard durch die Grossstadt und stoppt mit seinem Dart-Blaster eine Alien-Invasion.
 
 Das ganze Spiel steckt in einer einzigen Datei (`index.html`) und braucht keine Engine, keine Bilder und keinen Build-Schritt. Grafik und Sound werden im Browser erzeugt (Canvas und WebAudio).
 

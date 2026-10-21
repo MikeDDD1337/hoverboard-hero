@@ -626,7 +626,7 @@ function drawPlayer() {
   ctx.fillStyle = '#fff'; ctx.fillRect(-2, -44, 6, 3);
   ctx.fillStyle = '#1a1230'; ctx.beginPath(); ctx.arc(8.5, -32, 1.7, 0, 7); ctx.fill();
   ctx.strokeStyle = '#1a1230'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(8, -28, 3, 0.2, 1.4); ctx.stroke();
-  // arm + nerv-gun
+  // arm + dart blaster
   ctx.strokeStyle = '#e8433a'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(15, -10); ctx.stroke();
   ctx.fillStyle = '#ff8a1f'; rr(ctx, 12, -18, 28, 11, 3); ctx.fill();
   ctx.fillStyle = '#ffd23f'; ctx.fillRect(38, -16, 9, 7); ctx.fillRect(18, -21, 12, 3);
@@ -903,7 +903,7 @@ function drawTitle() {
   textOut('HOVERBOARD', cx, 130, 60, '#ff8a1f', FONT_D, 'center');
   textOut('HERO', cx, 196, 72, '#4ff0ff', FONT_D, 'center');
   textOut('Aliens greifen die Stadt an. Schnapp dir', cx, 246, 20, '#fff6e8', FONT_B, 'center');
-  textOut('dein Hoverboard und deine Nerv-Gun!', cx, 272, 20, '#fff6e8', FONT_B, 'center');
+  textOut('dein Hoverboard und deinen Dart-Blaster!', cx, 272, 20, '#fff6e8', FONT_B, 'center');
   const touch = matchMedia('(pointer: coarse)').matches;
   textOut(touch ? 'Links ziehen: fliegen  ·  Rechts halten: feuern' : 'Maus bewegen + klicken  ·  oder WASD + Leertaste', cx, 316, 16, '#d9cfff', FONT_B, 'center');
   const pulse = 0.6 + 0.4 * Math.sin(clock * 4);
