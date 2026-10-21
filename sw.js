@@ -1,6 +1,6 @@
 // Service worker: keeps a copy of the game so it starts offline once installed.
 // Bump VERSION whenever a cached file changes, so players get the update.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `hoverboard-hero-${VERSION}`;
 const FILES = [
   './',

@@ -42,6 +42,16 @@ Nach dem Start wählst du deine Figur. Alle spielen sich gleich, nur der Look is
 
 In der Auswahl: Karte antippen zum Wählen, nochmal antippen oder „LOS!“ zum Starten. Mit der Tastatur: Pfeiltasten und Enter.
 
+## Intro
+
+Nach der Figurenauswahl erzählen drei gezeichnete Szenen die Vorgeschichte, mit dem gewählten Kid in der Hauptrolle:
+
+1. **Das Geschenk:** Zum Geburtstag gibt es einen Dart-Blaster, im Kinderzimmer wird auf die Zielscheibe geschossen.
+2. **Der Absturz:** Aliens tauchen vor dem Fenster auf, eines kracht mit seinem Hoverboard durchs Fenster.
+3. **Auf die Jagd:** Das Kid schnappt sich das Hoverboard und fliegt hinaus in die Stadt.
+
+Antippen zeigt den Text sofort ganz bzw. blättert weiter. „Überspringen“ (oder Esc) startet direkt das Spiel. Nach einem Game Over startet „Nochmal“ ohne Intro.
+
 ## Steuerung
 
 | | Handy | Computer |
