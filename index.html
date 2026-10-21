@@ -4,10 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Hoverboard Hero</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@500;700;800&display=swap">
+<meta name="description" content="Flieg mit dem Hoverboard durch die Grossstadt und stoppe die Alien-Invasion mit deinem Dart-Blaster.">
+<meta name="theme-color" content="#14102a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hoverboard Hero">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
+/* Fonts ship with the game so it also works offline (SIL Open Font License, see fonts/) */
+@font-face { font-family: "Bungee"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/bungee-latin.woff2") format("woff2"); }
+@font-face { font-family: "Rubik"; font-style: normal; font-weight: 300 900; font-display: swap; src: url("fonts/rubik-latin.woff2") format("woff2"); }
 /* Layout: one full-bleed canvas; the game stage is 540 units tall and stretches sideways to fill phone screens */
 :root {
   --night: #14102a;
@@ -19,7 +28,7 @@
   --body: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: dark;
 }
-html { height: 100%; box-sizing: border-box; overflow: hidden; background: var(--night); }
+html { height: 100%; box-sizing: border-box; overflow: hidden; background: var(--night); padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 body { height: 100%; margin: 0; overflow: hidden; background: var(--night); color: var(--ink); font-family: var(--body); overscroll-behavior: none; }
 #stage { position: relative; width: 100%; height: 100%; touch-action: none; }
 #game {
@@ -202,10 +211,24 @@ function reset() {
   Object.assign(P, { x: 200, y: 270, lives: 3, inv: 1.5, fireCd: 0, power: null, powerT: 0, shield: 0, tilt: 0 });
   target.x = 200; target.y = 270;
 }
+// ---------- Install as app (PWA) ----------
+const topLevel = (() => { try { return window.self === window.top; } catch (e) { return false; } })();
+const installed = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
+window.addEventListener('appinstalled', () => { installPrompt = null; });
+if (topLevel && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+const INSTALL = () => ({ x: 24, y: H - 74, w: 250, h: 48 });
+const showInstallButton = () => topLevel && !installed && !!installPrompt;
+const showIOSHint = () => topLevel && !installed && isIOS;
+
 function startGame() {
   reset(); state = 'play';
   const el = document.documentElement;
-  if (matchMedia('(pointer: coarse)').matches && el.requestFullscreen && !document.fullscreenElement) {
+  if (!installed && matchMedia('(pointer: coarse)').matches && el.requestFullscreen && !document.fullscreenElement) {
     el.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {});
   }
   if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(() => {});
@@ -235,7 +258,10 @@ cvs.addEventListener('pointerdown', e => {
   e.preventDefault(); ensureAudio();
   const p = toLogical(e), b = BTN();
   if (inBox(p, b.mute)) { setMuted(!muted); return; }
-  if (state === 'title') { state = 'select'; return; }
+  if (state === 'title') {
+    if (showInstallButton() && inBox(p, INSTALL())) { installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; }); return; }
+    state = 'select'; return;
+  }
   if (state === 'select') {
     const L = selectLayout(), i = L.cards.findIndex(c => inBox(p, c));
     if (inBox(p, L.go) || (i >= 0 && i === kidIdx)) startGame();
@@ -978,6 +1004,14 @@ function drawTitle() {
   ctx.globalAlpha = pulse; textOut(touch ? 'TIPPEN ZUM STARTEN' : 'KLICKEN ZUM STARTEN', cx, 378, 26, '#ffd23f', FONT_D, 'center'); ctx.globalAlpha = 1;
   if (best > 0) textOut('Rekord: ' + best.toLocaleString('de-CH'), cx, 418, 18, '#fff6e8', FONT_B, 'center');
   if (cssH > cssW) textOut('Tipp: Handy quer halten', cx, 456, 16, '#9ff7ff', FONT_B, 'center');
+  if (showInstallButton()) {
+    const ib = INSTALL();
+    ctx.fillStyle = 'rgba(26,18,48,0.85)'; rr(ctx, ib.x, ib.y, ib.w, ib.h, 12); ctx.fill();
+    ctx.strokeStyle = '#4ff0ff'; ctx.lineWidth = 2; ctx.stroke();
+    textOut('Als App installieren', ib.x + ib.w / 2, ib.y + 31, 19, '#fff6e8', FONT_B, 'center');
+  } else if (showIOSHint()) {
+    textOut('Als App: Teilen  →  „Zum Home-Bildschirm“', 24, H - 40, 16, '#9ff7ff', FONT_B);
+  }
   const b = BTN(); drawButton(b.mute, 'mute');
 }
 function drawOver() {

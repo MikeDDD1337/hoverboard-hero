@@ -6,7 +6,26 @@ Das ganze Spiel steckt in einer einzigen Datei (`index.html`) und braucht keine 
 
 ## Spielen
 
-`index.html` im Browser öffnen, am besten auf dem Handy im Querformat. Mit GitHub Pages (Settings → Pages → Branch `main`, Ordner `/`) wird das Spiel unter einer öffentlichen Adresse spielbar.
+`index.html` im Browser öffnen, am besten auf dem Handy im Querformat. Mit GitHub Pages (Settings → Pages → Branch `main`, Ordner `/`) wird das Spiel unter https://mikeddd1337.github.io/hoverboard-hero/ öffentlich spielbar.
+
+## Als App installieren
+
+Das Spiel ist eine installierbare Web-App (PWA). Nach dem ersten Laden läuft es auch offline.
+
+- **Android (Chrome):** Auf dem Startbildschirm erscheint „Als App installieren“. Alternativ im Browser-Menü „App installieren“ wählen.
+- **iPhone (Safari):** Teilen-Symbol antippen, dann „Zum Home-Bildschirm“.
+
+Die App startet danach im Vollbild und im Querformat. Für die Installation muss das Spiel über HTTPS geladen werden, zum Beispiel über GitHub Pages.
+
+### Dateien
+
+| Datei | Zweck |
+|---|---|
+| `index.html` | Das ganze Spiel |
+| `manifest.webmanifest` | App-Name, Icons, Vollbild, Querformat |
+| `sw.js` | Service Worker für den Offline-Betrieb. Bei Änderungen an gecachten Dateien `VERSION` erhöhen |
+| `icons/` | App-Icons (192, 512, 1024 px, maskable, Apple) |
+| `fonts/` | Bungee und Rubik, beide unter der SIL Open Font License (Lizenztexte liegen bei) |
 
 ## Figuren
 
