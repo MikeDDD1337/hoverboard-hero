@@ -1,6 +1,6 @@
 // Service worker: keeps a copy of the game so it starts offline once installed.
 // Bump VERSION whenever a cached file changes, so players get the update.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `hoverboard-hero-${VERSION}`;
 const FILES = [
   './',
@@ -29,10 +29,11 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  // The page itself: try the network first so updates arrive, fall back to the cached copy offline.
+  // The page itself: always ask the server first (bypassing the browser's HTTP cache) so updates arrive,
+  // fall back to the cached copy offline.
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      fetch(req.url, { cache: 'no-store' })
         .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)); return res; })
         .catch(() => caches.match('./index.html'))
     );

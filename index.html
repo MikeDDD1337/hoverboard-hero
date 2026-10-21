@@ -218,8 +218,17 @@ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platfor
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
+// Keep in sync with VERSION in sw.js; shown on the title screen.
+const APP_VERSION = 'v3';
+let updateReady = false;
 if (topLevel && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    // An installed app is usually resumed from the background instead of reloaded, so look for updates on every return.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
+  // A new version took over: reload as soon as no round is running.
+  let hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) updateReady = true; hadController = true; });
 }
 const INSTALL = () => ({ x: 24, y: H - 74, w: 250, h: 48 });
 const showInstallButton = () => topLevel && !installed && !!installPrompt;
@@ -1015,6 +1024,7 @@ function drawTitle() {
   const pulse = 0.6 + 0.4 * Math.sin(clock * 4);
   ctx.globalAlpha = pulse; textOut(touch ? 'TIPPEN ZUM STARTEN' : 'KLICKEN ZUM STARTEN', cx, 378, 26, '#ffd23f', FONT_D, 'center'); ctx.globalAlpha = 1;
   if (best > 0) textOut('Rekord: ' + best.toLocaleString('de-CH'), cx, 418, 18, '#fff6e8', FONT_B, 'center');
+  textOut('Version ' + APP_VERSION, W - 20, H - 16, 13, 'rgba(255,246,232,0.6)', FONT_B, 'right');
   if (cssH > cssW) textOut('Tipp: Handy quer halten', cx, 456, 16, '#9ff7ff', FONT_B, 'center');
   if (showInstallButton()) {
     const ib = INSTALL();
@@ -1341,6 +1351,7 @@ function drawIntroUI() {
 // ---------- Loop ----------
 let last = performance.now();
 function frame(now) {
+  if (updateReady && (state === 'title' || state === 'select' || state === 'over')) { updateReady = false; location.reload(); return; }
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
   const st = cvs.parentElement;
@@ -1351,7 +1362,7 @@ buildLayers();
 if (document.fonts && document.fonts.load) {
   Promise.all([document.fonts.load(`20px ${FONT_D}`), document.fonts.load(`700 20px ${FONT_B}`)]).then(buildLayers).catch(() => {});
 }
-window.__hh = { get state() { return state; }, get score() { return score; }, get enemies() { return enemies.length; }, get darts() { return darts.length; }, get player() { return { x: P.x, y: P.y, lives: P.lives }; } };
+window.__hh = { version: APP_VERSION, get state() { return state; }, get score() { return score; }, get enemies() { return enemies.length; }, get darts() { return darts.length; }, get player() { return { x: P.x, y: P.y, lives: P.lives }; } };
 requestAnimationFrame(frame);
 })();
 </script>

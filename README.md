@@ -15,7 +15,7 @@ Das Spiel ist eine installierbare Web-App (PWA). Nach dem ersten Laden läuft es
 - **Android (Chrome):** Auf dem Startbildschirm erscheint „Als App installieren“. Alternativ im Browser-Menü „App installieren“ wählen.
 - **iPhone (Safari):** Teilen-Symbol antippen, dann „Zum Home-Bildschirm“.
 
-Die App startet danach im Vollbild und im Querformat. Für die Installation muss das Spiel über HTTPS geladen werden, zum Beispiel über GitHub Pages.
+Die App startet danach im Vollbild und im Querformat. Updates lädt sie selbst: Sobald man die App wieder öffnet oder aus dem Hintergrund holt, sucht sie nach einer neuen Version und lädt sie, sobald gerade keine Runde läuft. Die aktuelle Version steht unten rechts auf dem Startbildschirm. Für die Installation muss das Spiel über HTTPS geladen werden, zum Beispiel über GitHub Pages.
 
 ### Dateien
 
@@ -23,7 +23,7 @@ Die App startet danach im Vollbild und im Querformat. Für die Installation muss
 |---|---|
 | `index.html` | Das ganze Spiel |
 | `manifest.webmanifest` | App-Name, Icons, Vollbild, Querformat |
-| `sw.js` | Service Worker für den Offline-Betrieb. Bei Änderungen an gecachten Dateien `VERSION` erhöhen |
+| `sw.js` | Service Worker für den Offline-Betrieb. Bei jeder neuen Version `VERSION` hier und `APP_VERSION` in `index.html` gemeinsam erhöhen |
 | `icons/` | App-Icons (192, 512, 1024 px, maskable, Apple) |
 | `fonts/` | Bungee und Rubik, beide unter der SIL Open Font License (Lizenztexte liegen bei) |
 
