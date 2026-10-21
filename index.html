@@ -179,7 +179,7 @@ const sfx = {
 };
 // ---------- Music (synthesised like the effects: a small step sequencer on the audio clock) ----------
 const Music = (() => {
-  let A = null, bus = null, lp = null, nbuf = null, curve = null, hardCurve = null, timer = null;
+  let A = null, bus = null, lp = null, nbuf = null, curve = null, hardCurve = null, gabberCurve = null, timer = null;
   let active = [], current = null, intensity = 0, duck = false;
   const stats = { lounge: 0, acid: 0 };
   const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
@@ -190,6 +190,7 @@ const Music = (() => {
     const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) curve[i] = Math.tanh((i / 511.5 - 1) * 3);
     hardCurve = new Float32Array(1024); for (let i = 0; i < 1024; i++) hardCurve[i] = Math.tanh((i / 511.5 - 1) * 9) / Math.tanh(9);
+    gabberCurve = new Float32Array(2048); for (let i = 0; i < 2048; i++) gabberCurve[i] = Math.tanh((i / 1023.5 - 1) * 28) / Math.tanh(28);
     bus = A.createGain(); bus.gain.value = 0.6;
     lp = A.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 18000;
     const comp = A.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.15;
@@ -243,6 +244,14 @@ const Music = (() => {
       if (heavy) { const g2 = gainTo(tr.crush); env(g2, t, 0.002, v * 0.7, 0.3); osc('triangle', 105, t, t + 0.36, g2).frequency.exponentialRampToValueAtTime(36, t + 0.09); }
       const c = gainTo(tr.out); env(c, t, 0.0005, v * 0.35, 0.012); osc('square', 1800, t, t + 0.02, c);
     },
+    // hardcore/gabber kick: fast pitch drop into a long, distorted tonal tail on A1
+    gabberKick(t, tr, v, len) {
+      const g = gainTo(tr.gabber);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.002);
+      g.gain.setValueAtTime(v, t + len * 0.55); g.gain.exponentialRampToValueAtTime(0.001, t + len);
+      const o = osc('sine', 420, t, t + len + 0.02, g);
+      o.frequency.exponentialRampToValueAtTime(110, t + 0.025); o.frequency.exponentialRampToValueAtTime(55, t + 0.07);
+    },
     rumbleHit(t, tr, v) { const g = gainTo(tr.crush); env(g, t, 0.004, v, 0.1); const fl = filt('lowpass', 160, 1, g); osc('sine', 48, t, t + 0.16, fl); osc('triangle', 48, t, t + 0.16, fl); },
     snare(t, tr, v) {
       const g = gainTo(tr.out); env(g, t, 0.001, v, 0.12); noiseSrc(t, 0.16, filt('bandpass', 1800, 0.8, g));
@@ -283,8 +292,9 @@ const Music = (() => {
     acid: { bpm: 152, vol: 0.62, step(tr, t, s, sd) {
       const bar = Math.floor(s / 16), i = s % 16, phrase = Math.floor(bar / 8), lastBar = bar % 8 === 7, hot = intensity;
       const roll = lastBar && i >= 8; // kick and rumble drop out for the snare roll
-      if (i % 4 === 0 && !roll) I.hardKick(t, tr, 1, hot);
-      if (i % 4 !== 0 && !roll) I.rumbleHit(t, tr, [0, 0.42, 0.3, 0.2][i % 4]);
+      if (i % 4 === 0 && !roll) { I.hardKick(t, tr, 1, hot); I.gabberKick(t, tr, 0.9, sd * 3.6); }
+      // the gabber tail fills the gaps, so the rumble only comes back in boss fights
+      if (hot && i % 4 !== 0 && !roll) I.rumbleHit(t, tr, [0, 0.3, 0.2, 0.14][i % 4]);
       if (bar >= 1) { I.hat(t, tr, i % 4 === 2 ? 0.07 : 0.045, false); if (i % 4 === 2) I.hat(t, tr, 0.15, true); }
       if (bar >= 1 && !lastBar && (i === 4 || i === 12)) { I.clap(t, tr, 0.3); I.snare(t, tr, 0.22); }
       if (lastBar && bar > 0) {
@@ -335,7 +345,11 @@ const Music = (() => {
     const crush = A.createWaveShaper(), crushOut = A.createGain(), grit = A.createWaveShaper(), gritOut = A.createGain();
     crush.curve = hardCurve; crushOut.gain.value = 0.5; crush.connect(crushOut); crushOut.connect(out);
     grit.curve = curve; gritOut.gain.value = 0.55; grit.connect(gritOut); gritOut.connect(out);
-    active.push({ name, def, out, dist, crush, grit, nextT: now + 0.06, step: 0 });
+    // gabber: the hardcore kick is driven almost to a square wave, then tamed with a lowpass
+    const gabber = A.createWaveShaper(), gabLP = A.createBiquadFilter(), gabOut = A.createGain();
+    gabber.curve = gabberCurve; gabLP.type = 'lowpass'; gabLP.frequency.value = 3200; gabLP.Q.value = 1.2; gabOut.gain.value = 0.42;
+    gabber.connect(gabLP); gabLP.connect(gabOut); gabOut.connect(out);
+    active.push({ name, def, out, dist, crush, grit, gabber, nextT: now + 0.06, step: 0 });
   }
   function mood(d, hot) {
     if (!A) return;
@@ -396,7 +410,7 @@ let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
 // Keep in sync with VERSION in sw.js; shown on the title screen.
-const APP_VERSION = 'v5';
+const APP_VERSION = 'v6';
 let updateReady = false;
 if (topLevel && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').then(reg => {
