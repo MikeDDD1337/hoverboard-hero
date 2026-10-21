@@ -135,13 +135,14 @@ const STARS = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.rand
 
 // ---------- Audio (synthesised, starts on first tap) ----------
 let ac = null, master = null, noiseBuf = null;
-let muted = false;
-try { muted = localStorage.getItem('hh-muted') === '1'; } catch (e) {}
+let muted = false, musicOn = true, sfxBus = null; // muted = sound effects off; music has its own switch
+try { muted = localStorage.getItem('hh-muted') === '1'; musicOn = localStorage.getItem('hh-music') !== '0'; } catch (e) {}
 function ensureAudio() {
   if (!ac) {
     try {
       ac = new (window.AudioContext || window.webkitAudioContext)();
-      master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(ac.destination);
+      master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
+      sfxBus = ac.createGain(); sfxBus.gain.value = muted ? 0 : 1; sfxBus.connect(master);
       Music.attach(ac, master);
       noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -154,14 +155,14 @@ function tone(f, dur, type = 'square', vol = 0.15, to = null, delay = 0) {
   const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t); if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  o.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + dur + 0.02);
 }
 function noise(dur, vol = 0.2, freq = 1200, delay = 0) {
   if (!ac || muted) return;
   const t = ac.currentTime + delay, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
   s.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.value = freq;
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + dur + 0.02);
+  s.connect(f); f.connect(g); g.connect(sfxBus); s.start(t); s.stop(t + dur + 0.02);
 }
 const sfx = {
   shoot() { tone(620, 0.07, 'square', 0.05, 240); noise(0.05, 0.08, 2400); },
@@ -289,7 +290,7 @@ const Music = (() => {
       if (i % 2 === 0) I.shaker(tt, tr, i % 4 === 2 ? 0.08 : 0.05);
       if (bar % 2 === 1 && i % 2 === 0 && Math.random() < 0.28) I.vibe(tt, tr, mtof(CHORDS[ch][(Math.random() * CHORDS[ch].length) | 0] + 12), 0.09);
     } },
-    acid: { bpm: 152, vol: 0.62, step(tr, t, s, sd) {
+    acid: { bpm: 152, vol: 0.3, step(tr, t, s, sd) {
       const bar = Math.floor(s / 16), i = s % 16, phrase = Math.floor(bar / 8), lastBar = bar % 8 === 7, hot = intensity;
       const roll = lastBar && i >= 8; // kick and rumble drop out for the snare roll
       if (i % 4 === 0 && !roll) { I.hardKick(t, tr, 1, hot); I.gabberKick(t, tr, 0.9, sd * 3.6); }
@@ -363,11 +364,13 @@ const Music = (() => {
   return { attach, play, tick, mood, stats, get current() { return current; } };
 })();
 function syncMusic() {
-  const want = state === 'intro' ? 'lounge' : (state === 'play' || state === 'pause' || state === 'quit') ? 'acid' : null;
-  if (Music.current !== want) Music.play(want, want ? 1 : 1.5);
+  let want = state === 'intro' ? 'lounge' : (state === 'play' || state === 'pause' || state === 'quit') ? 'acid' : null;
+  if (!musicOn) want = null;
+  if (Music.current !== want) Music.play(want, want ? 1 : musicOn ? 1.5 : 0.25);
   Music.mood(state === 'pause' || state === 'quit', !!boss || bossWarn > 0);
 }
-function setMuted(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.5; try { localStorage.setItem('hh-muted', m ? '1' : '0'); } catch (e) {} }
+function setMuted(m) { muted = m; if (sfxBus) sfxBus.gain.value = m ? 0 : 1; try { localStorage.setItem('hh-muted', m ? '1' : '0'); } catch (e) {} }
+function setMusic(on) { musicOn = on; try { localStorage.setItem('hh-music', on ? '1' : '0'); } catch (e) {} }
 
 // ---------- Game state ----------
 let state = 'title', clock = 0, playTime = 0, dist = 0, speed = 200, skyClock = 0;
@@ -410,7 +413,7 @@ let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
 // Keep in sync with VERSION in sw.js; shown on the title screen.
-const APP_VERSION = 'v6';
+const APP_VERSION = 'v7';
 let updateReady = false;
 if (topLevel && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').then(reg => {
@@ -442,7 +445,7 @@ function gameOver() {
 const keys = {};
 const pointers = new Map();
 let mouseDown = false;
-const BTN = () => ({ pause: { x: W - 62, y: 14, w: 46, h: 46 }, quit: { x: W - 116, y: 14, w: 46, h: 46 }, mute: { x: W - 170, y: 14, w: 46, h: 46 } });
+const BTN = () => ({ pause: { x: W - 62, y: 14, w: 46, h: 46 }, quit: { x: W - 116, y: 14, w: 46, h: 46 }, mute: { x: W - 170, y: 14, w: 46, h: 46 }, music: { x: W - 224, y: 14, w: 46, h: 46 } });
 const DLG = () => ({ resume: { x: W / 2 - 205, y: 300, w: 190, h: 54 }, end: { x: W / 2 + 15, y: 300, w: 190, h: 54 } });
 function quitToTitle() {
   if (score > best) { best = score; try { localStorage.setItem('hh-best', String(best)); } catch (e) {} }
@@ -463,6 +466,7 @@ cvs.addEventListener('pointerdown', e => {
   e.preventDefault(); ensureAudio();
   const p = toLogical(e), b = BTN();
   if (inBox(p, b.mute)) { setMuted(!muted); return; }
+  if (inBox(p, b.music)) { setMusic(!musicOn); return; }
   if (state === 'intro') { if (inBox(p, SKIP())) startGame(); else introAdvance(); return; }
   if (state === 'title') {
     if (showInstallButton() && inBox(p, INSTALL())) { installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; }); return; }
@@ -503,7 +507,8 @@ const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'ri
 window.addEventListener('keydown', e => {
   ensureAudio();
   if (KEYMAP[e.code]) { keys[KEYMAP[e.code]] = true; e.preventDefault(); }
-  if (e.code === 'KeyM') setMuted(!muted);
+  if (e.code === 'KeyM') setMusic(!musicOn);
+  if (e.code === 'KeyN') setMuted(!muted);
   if (state === 'quit' && (e.code === 'Escape' || e.code === 'Enter')) { state = 'play'; return; }
   if (e.code === 'KeyQ' && (state === 'play' || state === 'pause')) { state = 'quit'; return; }
   if (e.code === 'KeyP' || e.code === 'Escape') { if (state === 'play') state = 'pause'; else if (state === 'pause') state = 'play'; }
@@ -1167,6 +1172,12 @@ function drawButton(b, kind) {
   const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
   ctx.fillStyle = '#fff6e8'; ctx.strokeStyle = '#fff6e8'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
   if (kind === 'pause') { ctx.fillRect(cx - 8, cy - 10, 5, 20); ctx.fillRect(cx + 3, cy - 10, 5, 20); }
+  else if (kind === 'music') {
+    ctx.beginPath(); ctx.ellipse(cx - 6, cy + 7, 4.5, 3.5, -0.4, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(cx + 7, cy + 4, 4.5, 3.5, -0.4, 0, 7); ctx.fill();
+    ctx.fillRect(cx - 2.5, cy - 10, 2.5, 17); ctx.fillRect(cx + 10.5, cy - 13, 2.5, 17);
+    ctx.beginPath(); ctx.moveTo(cx - 2.5, cy - 10); ctx.lineTo(cx + 13, cy - 13); ctx.lineTo(cx + 13, cy - 8); ctx.lineTo(cx - 2.5, cy - 5); ctx.closePath(); ctx.fill();
+    if (!musicOn) { ctx.strokeStyle = '#ff4f6d'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(cx - 13, cy + 13); ctx.lineTo(cx + 13, cy - 13); ctx.stroke(); }
+  }
   else if (kind === 'quit') { ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(cx - 8, cy - 8); ctx.lineTo(cx + 8, cy + 8); ctx.moveTo(cx + 8, cy - 8); ctx.lineTo(cx - 8, cy + 8); ctx.stroke(); }
   else {
     ctx.beginPath(); ctx.moveTo(cx - 11, cy - 5); ctx.lineTo(cx - 6, cy - 5); ctx.lineTo(cx + 1, cy - 11); ctx.lineTo(cx + 1, cy + 11); ctx.lineTo(cx - 6, cy + 5); ctx.lineTo(cx - 11, cy + 5); ctx.closePath(); ctx.fill();
@@ -1188,7 +1199,7 @@ function drawHUD() {
     ctx.fillStyle = 'rgba(26,18,48,0.6)'; rr(ctx, 22, y + 6, 140, 7, 3.5); ctx.fill();
     ctx.fillStyle = '#4ff0ff'; rr(ctx, 22, y + 6, Math.max(7, 140 * frac), 7, 3.5); ctx.fill();
   }
-  const b = BTN(); drawButton(b.pause, 'pause'); drawButton(b.quit, 'quit'); drawButton(b.mute, 'mute');
+  const b = BTN(); drawButton(b.pause, 'pause'); drawButton(b.quit, 'quit'); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
   if (boss) {
     const bw = Math.min(420, W * 0.4), bx = (W - bw) / 2;
     textOut(boss.name, W / 2, 34, 16, '#7dff6a', FONT_D, 'center');
@@ -1242,7 +1253,7 @@ function drawTitle() {
   } else if (showIOSHint()) {
     textOut('Als App: Teilen  →  „Zum Home-Bildschirm“', 24, H - 40, 16, '#9ff7ff', FONT_B);
   }
-  const b = BTN(); drawButton(b.mute, 'mute');
+  const b = BTN(); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
 }
 function drawOver() {
   dim(0.55);
@@ -1282,7 +1293,7 @@ function drawSelect() {
   ctx.strokeStyle = '#1a1230'; ctx.lineWidth = 3; ctx.stroke();
   textOut('LOS!', 0, 11, 30, '#fff6e8', FONT_D, 'center');
   ctx.restore();
-  const b = BTN(); drawButton(b.mute, 'mute');
+  const b = BTN(); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
 }
 function drawDialog(title, sub) {
   dim(0.55);
@@ -1346,7 +1357,7 @@ const FLOOR = 345, KS = 1.6; // floor line and kid scale inside the room
 let introScene = 0, introT = 0, introChars = 0, introShot = 0, introDarts = [], introStuck = [], introCrashed = false, introLeave = -1;
 const introText = () => INTRO[introScene](KIDS[kidIdx].name);
 const introWin = () => ({ x: W * 0.47, y: 46, w: Math.min(270, W * 0.3), h: 196 });
-const SKIP = () => ({ x: W - 330, y: 14, w: 144, h: 46 });
+const SKIP = () => ({ x: W - 384, y: 14, w: 144, h: 46 });
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = v => { v = clamp(v, 0, 1); return v * v * (3 - 2 * v); };
 
@@ -1564,7 +1575,7 @@ function drawIntroUI() {
   ctx.strokeStyle = 'rgba(255,246,232,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
   ctx.font = `700 17px ${FONT_B}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff6e8';
   ctx.fillText('Überspringen ›', s.x + s.w / 2, s.y + s.h / 2 + 1);
-  const b = BTN(); drawButton(b.mute, 'mute');
+  const b = BTN(); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
 }
 
 // ---------- Loop ----------

@@ -60,7 +60,7 @@ Die Musik wird wie die Soundeffekte direkt im Browser erzeugt (WebAudio-Sequence
 - **Spiel:** Hard Acid Rave mit 152 BPM: stark verzerrte Bassdrum mit Hardcore-Kick (Gabber-Ausklang auf A), 16tel-Hi-Hats, Clap und Snare, dazu zwei dreckige 303-artige Acid-Linien mit schnellem Filter-Sweep. Alle 8 Takte gibt es einen Snare-Wirbel mit Riser und ein neues Acid-Muster. Bei Mutterschiffen wird die Bassdrum schwerer und das Filter öffnet sich ganz.
 - In der Pause und im Beenden-Dialog wird die Musik leiser und dumpfer, bei Game Over blendet sie aus.
 
-Der Lautsprecher-Knopf schaltet Musik und Effekte gemeinsam stumm.
+Musik und Soundeffekte haben je einen eigenen Knopf oben rechts (Note = Musik, Lautsprecher = Effekte). Die Spielmusik ist bewusst leiser abgemischt, damit die Effekte gut hörbar bleiben.
 
 ## Steuerung
 
@@ -70,7 +70,8 @@ Der Lautsprecher-Knopf schaltet Musik und Effekte gemeinsam stumm.
 | Schiessen | Rechte Bildschirmhälfte: gedrückt halten | Klicken oder Leertaste |
 | Pause | Pause-Knopf oben rechts | P oder Esc |
 | Runde beenden | ✕-Knopf oben rechts, dann „Beenden“ | Q, dann Klick auf „Beenden“ |
-| Ton an/aus | Lautsprecher-Knopf | M |
+| Musik an/aus | Noten-Knopf | M |
+| Soundeffekte an/aus | Lautsprecher-Knopf | N |
 
 ## Inhalt
 
