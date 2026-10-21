@@ -57,7 +57,7 @@ Antippen zeigt den Text sofort ganz bzw. blättert weiter. „Überspringen“ (
 Die Musik wird wie die Soundeffekte direkt im Browser erzeugt (WebAudio-Sequencer, keine Audiodateien):
 
 - **Intro:** ruhige Lounge mit Rhodes-Akkorden (Dm9, G13, Cmaj9, Am9), gezupftem Bass, Besen-Beat und Vibraphon, 84 BPM.
-- **Spiel:** harter Acid Techno mit 138 BPM: Bassdrum, Rumble-Bass, Hi-Hats, Clap und eine 303-artige Acid-Linie mit Filter-Sweep. Alle 8 Takte wechselt das Muster. Bei Mutterschiffen öffnet sich das Filter und eine zweite Acid-Stimme kommt dazu.
+- **Spiel:** Hard Acid Rave mit 152 BPM: stark verzerrte Bassdrum mit rollendem Rumble-Bass, 16tel-Hi-Hats, Clap und Snare, dazu zwei dreckige 303-artige Acid-Linien mit schnellem Filter-Sweep. Alle 8 Takte gibt es einen Snare-Wirbel mit Riser und ein neues Acid-Muster. Bei Mutterschiffen wird die Bassdrum schwerer und das Filter öffnet sich ganz.
 - In der Pause und im Beenden-Dialog wird die Musik leiser und dumpfer, bei Game Over blendet sie aus.
 
 Der Lautsprecher-Knopf schaltet Musik und Effekte gemeinsam stumm.

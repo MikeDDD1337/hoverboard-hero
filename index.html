@@ -179,7 +179,7 @@ const sfx = {
 };
 // ---------- Music (synthesised like the effects: a small step sequencer on the audio clock) ----------
 const Music = (() => {
-  let A = null, bus = null, lp = null, nbuf = null, curve = null, timer = null;
+  let A = null, bus = null, lp = null, nbuf = null, curve = null, hardCurve = null, timer = null;
   let active = [], current = null, intensity = 0, duck = false;
   const stats = { lounge: 0, acid: 0 };
   const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
@@ -189,6 +189,7 @@ const Music = (() => {
     nbuf = A.createBuffer(1, A.sampleRate, A.sampleRate);
     const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) curve[i] = Math.tanh((i / 511.5 - 1) * 3);
+    hardCurve = new Float32Array(1024); for (let i = 0; i < 1024; i++) hardCurve[i] = Math.tanh((i / 511.5 - 1) * 9) / Math.tanh(9);
     bus = A.createGain(); bus.gain.value = 0.6;
     lp = A.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 18000;
     const comp = A.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.15;
@@ -226,8 +227,8 @@ const Music = (() => {
     },
     vibe(t, tr, f, v) { const g = gainTo(tr.out); env(g, t, 0.004, v, 1.4); osc('sine', f, t, t + 1.6, g); const g2 = gainTo(tr.out); env(g2, t, 0.002, v * 0.3, 0.3); osc('sine', f * 4, t, t + 0.4, g2); },
     pluck(t, tr, f, dur, v) { const g = gainTo(tr.out); env(g, t, 0.006, v, dur); const fl = filt('lowpass', 650, 1.5, g); osc('triangle', f, t, t + dur + 0.1, fl); osc('sine', f, t, t + dur + 0.1, fl); },
-    acid(t, tr, f, dur, v, acc, from, cut, res) {
-      const g = gainTo(tr.out), vv = v * (acc ? 1.4 : 1);
+    acid(t, tr, f, dur, v, acc, from, cut, res, node) {
+      const g = gainTo(node || tr.out), vv = v * (acc ? 1.4 : 1);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vv, t + 0.004);
       g.gain.setValueAtTime(vv, t + dur); g.gain.exponentialRampToValueAtTime(0.0008, t + dur + 0.04);
       const fl = filt('lowpass', cut, res + (acc ? 4 : 0), g);
@@ -236,16 +237,32 @@ const Music = (() => {
       if (from) o.frequency.exponentialRampToValueAtTime(f, t + 0.07);
     },
     rumble(t, tr, f, v) { const g = gainTo(tr.dist); env(g, t, 0.01, v, 0.22); const fl = filt('lowpass', 180, 1, g); osc('sine', f, t, t + 0.3, fl); osc('triangle', f, t, t + 0.3, fl); },
+    hardKick(t, tr, v, heavy) {
+      const g = gainTo(tr.crush); env(g, t, 0.001, v, 0.26);
+      osc('sine', 210, t, t + 0.35, g).frequency.exponentialRampToValueAtTime(40, t + 0.07);
+      if (heavy) { const g2 = gainTo(tr.crush); env(g2, t, 0.002, v * 0.7, 0.3); osc('triangle', 105, t, t + 0.36, g2).frequency.exponentialRampToValueAtTime(36, t + 0.09); }
+      const c = gainTo(tr.out); env(c, t, 0.0005, v * 0.35, 0.012); osc('square', 1800, t, t + 0.02, c);
+    },
+    rumbleHit(t, tr, v) { const g = gainTo(tr.crush); env(g, t, 0.004, v, 0.1); const fl = filt('lowpass', 160, 1, g); osc('sine', 48, t, t + 0.16, fl); osc('triangle', 48, t, t + 0.16, fl); },
+    snare(t, tr, v) {
+      const g = gainTo(tr.out); env(g, t, 0.001, v, 0.12); noiseSrc(t, 0.16, filt('bandpass', 1800, 0.8, g));
+      const b = gainTo(tr.out); env(b, t, 0.001, v * 0.7, 0.07); osc('triangle', 200, t, t + 0.1, b).frequency.exponentialRampToValueAtTime(150, t + 0.06);
+    },
+    riser(t, tr, dur, v) {
+      const g = gainTo(tr.out); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + dur); g.gain.linearRampToValueAtTime(0, t + dur + 0.02);
+      const fl = filt('bandpass', 400, 2, g); fl.frequency.setValueAtTime(400, t); fl.frequency.exponentialRampToValueAtTime(7000, t + dur);
+      noiseSrc(t, dur + 0.05, fl);
+    },
     crash(t, tr, v) { const g = gainTo(tr.out); env(g, t, 0.003, v, 1.6); noiseSrc(t, 1.8, filt('highpass', 3500, 0.5, g)); },
   };
 
   // --- tracks ---
   // Acid lines in A minor, 16 steps: semitones above A2, '!' accent, '~' slide, '.' rest
   const ACID = [
-    '0! . 0 12~ 0 . 0 0! 3 . 0 12~ 0 7 0! .',
-    '0! 0 12 0 0! 15~ 12 0 . 0 10~ 12 0! . 7 0',
-    '0! . 3 . 5! . 7~ 10 0! . 12 . 10~ 7 5 3',
-    '0! 12 0 12! 0 . 3~ 5 0! 12 0 15! 12~ 10 7 0',
+    '0! 0 12 0 0! 0 15~ 12 0! 0 12 0 10~ 12 0! 7',
+    '0! 12 0 0 12! 0 3~ 0 0! 12 15~ 12 0! 0 10 12',
+    '0! 0 0 12~ 24! 12 0 0 0! 3 0 12~ 0! 15 12 0',
+    '0! 7 0 12~ 0! 10 0 15~ 0! 12 0 7~ 0! 3 5~ 7',
   ].map(p => p.split(' ').map(tok => tok === '.' ? null : { n: parseInt(tok, 10), a: tok.includes('!'), s: tok.includes('~') }));
   const CHORDS = [[50, 53, 57, 60, 64], [53, 59, 64, 69], [52, 55, 59, 62], [55, 60, 64, 71]]; // Dm9 G13 Cmaj9 Am9
   const ROOTS = [38, 43, 36, 33];
@@ -263,24 +280,28 @@ const Music = (() => {
       if (i % 2 === 0) I.shaker(tt, tr, i % 4 === 2 ? 0.08 : 0.05);
       if (bar % 2 === 1 && i % 2 === 0 && Math.random() < 0.28) I.vibe(tt, tr, mtof(CHORDS[ch][(Math.random() * CHORDS[ch].length) | 0] + 12), 0.09);
     } },
-    acid: { bpm: 138, vol: 0.6, step(tr, t, s, sd) {
-      const bar = Math.floor(s / 16), i = s % 16, phrase = Math.floor(bar / 8);
-      if (i % 4 === 0) I.kick(t, tr, 0.95, true);
-      if (i % 4 === 2) I.rumble(t, tr, 55, 0.45);
-      if (bar >= 1 && i % 4 === 2) I.hat(t, tr, 0.16, true);
-      if (bar >= 2 && i % 2 === 1) I.hat(t, tr, 0.06, false);
-      if (bar >= 1 && (i === 4 || i === 12)) I.clap(t, tr, 0.32);
-      if (i === 0 && bar > 0 && bar % 8 === 0) I.crash(t, tr, 0.18);
-      // slow filter sweep over 16 bars; boss fights push it open
-      const cut = 260 + 1100 * (0.5 - 0.5 * Math.cos(2 * Math.PI * s / 256)) + intensity * 1200;
+    acid: { bpm: 152, vol: 0.62, step(tr, t, s, sd) {
+      const bar = Math.floor(s / 16), i = s % 16, phrase = Math.floor(bar / 8), lastBar = bar % 8 === 7, hot = intensity;
+      const roll = lastBar && i >= 8; // kick and rumble drop out for the snare roll
+      if (i % 4 === 0 && !roll) I.hardKick(t, tr, 1, hot);
+      if (i % 4 !== 0 && !roll) I.rumbleHit(t, tr, [0, 0.42, 0.3, 0.2][i % 4]);
+      if (bar >= 1) { I.hat(t, tr, i % 4 === 2 ? 0.07 : 0.045, false); if (i % 4 === 2) I.hat(t, tr, 0.15, true); }
+      if (bar >= 1 && !lastBar && (i === 4 || i === 12)) { I.clap(t, tr, 0.3); I.snare(t, tr, 0.22); }
+      if (lastBar && bar > 0) {
+        if (i === 0) I.riser(t, tr, 16 * sd, 0.18);
+        if (i % (i < 8 ? 2 : 1) === 0) I.snare(t, tr, 0.12 + i * 0.012);
+      }
+      if (i === 0 && bar > 0 && bar % 8 === 0) I.crash(t, tr, 0.22);
+      // filter sweep every 8 bars; boss fights push it wide open
+      const cut = 300 + 1700 * (0.5 - 0.5 * Math.cos(2 * Math.PI * s / 128)) + hot * 1500;
       const pat = ACID[phrase % 4], nt = pat[i];
       if (nt) {
         const prev = pat[(i + 15) % 16];
-        I.acid(t, tr, mtof(45 + nt.n), sd * (nt.s ? 1 : 0.6), 0.32, nt.a, nt.s && prev ? mtof(45 + prev.n) : 0, cut, 14);
+        I.acid(t, tr, mtof(45 + nt.n), sd * (nt.s ? 1 : 0.55), 0.42, nt.a, nt.s && prev ? mtof(45 + prev.n) : 0, cut, 20, tr.grit);
       }
-      if (intensity) {
-        const pat2 = ACID[(phrase + 2) % 4], n2 = pat2[(i + 8) % 16];
-        if (n2) I.acid(t, tr, mtof(57 + n2.n), sd * 0.5, 0.15, n2.a, 0, cut * 1.5, 12);
+      if (phrase >= 1 || hot) {
+        const n2 = ACID[(phrase + 1) % 4][(i + 6) % 16];
+        if (n2) I.acid(t, tr, mtof(57 + n2.n), sd * 0.5, hot ? 0.22 : 0.13, n2.a, 0, cut * 1.4, 18, tr.grit);
       }
     } },
   };
@@ -310,7 +331,11 @@ const Music = (() => {
     const def = TRACKS[name], out = A.createGain(), dist = A.createWaveShaper();
     out.gain.setValueAtTime(0, now); out.gain.linearRampToValueAtTime(def.vol, now + Math.min(fade, 0.6)); out.connect(bus);
     dist.curve = curve; dist.connect(out);
-    active.push({ name, def, out, dist, nextT: now + 0.06, step: 0 });
+    // crush: heavily saturated kick + rumble bus; grit: driven acid bus
+    const crush = A.createWaveShaper(), crushOut = A.createGain(), grit = A.createWaveShaper(), gritOut = A.createGain();
+    crush.curve = hardCurve; crushOut.gain.value = 0.5; crush.connect(crushOut); crushOut.connect(out);
+    grit.curve = curve; gritOut.gain.value = 0.55; grit.connect(gritOut); gritOut.connect(out);
+    active.push({ name, def, out, dist, crush, grit, nextT: now + 0.06, step: 0 });
   }
   function mood(d, hot) {
     if (!A) return;
@@ -371,7 +396,7 @@ let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
 // Keep in sync with VERSION in sw.js; shown on the title screen.
-const APP_VERSION = 'v4';
+const APP_VERSION = 'v5';
 let updateReady = false;
 if (topLevel && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').then(reg => {
