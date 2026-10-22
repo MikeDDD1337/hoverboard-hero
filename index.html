@@ -466,7 +466,7 @@ let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
 // Keep in sync with VERSION in sw.js; shown on the title screen.
-const APP_VERSION = 'v8';
+const APP_VERSION = 'v9';
 let updateReady = false;
 if (topLevel && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').then(reg => {
@@ -855,12 +855,12 @@ function update(dt) {
   for (const e of enemies) if (!e.dead && !e.gone && !(e.type === 'phantom' && e.vis < 0.5) && circleHit(P.x, pcy, pr, e.x, e.y, e.r * 0.85)) { e.hp = 0; killEnemy(e); hurtPlayer(); }
   for (const b of ebullets) if (!b.gone && circleHit(P.x, pcy, pr - 4, b.x, b.y, b.r)) { b.gone = true; hurtPlayer(); }
   for (const o of obstacles) {
-    const hit = o.type === 'blimp' ? ellipseHit(P.x, pcy, pr - 2, o.x, o.y, o.a, o.b) : (rectHit(P.x, pcy, pr - 2, o.x, o.hy, o.w, o.h) || (P.x > o.x + o.w / 2 - 6 && P.x < o.x + o.w / 2 + 6 && pcy < o.hy));
+    const hit = o.type === 'blimp' ? ellipseHit(P.x, pcy, pr - 2, o.x, o.y, o.a, o.b) : rectHit(P.x, pcy, pr - 2, o.x, o.hy, o.w, o.h);
     if (hit) hurtPlayer();
   }
   if (boss && ellipseHit(P.x, pcy, pr, boss.x, boss.y, boss.ea - 10, boss.eb - 8)) hurtPlayer();
   if (boss && boss.laser && boss.laser.phase === 'fire' && P.x < boss.x && Math.abs(pcy - boss.laser.y) < 22) hurtPlayer();
-  for (const u of powerups) if (!u.gone && circleHit(P.x, pcy, 30, u.x, u.y, 16)) { u.gone = true; collect(u.kind); }
+  for (const u of powerups) if (!u.gone && circleHit(P.x, pcy, 30, u.x, u.y, 16 * POWER_SCALE)) { u.gone = true; collect(u.kind); }
 
   darts = darts.filter(d => !d.gone);
   enemies = enemies.filter(e => !e.dead && !e.gone);
@@ -1196,16 +1196,19 @@ function drawObstacle(o) {
     ctx.restore();
   }
 }
+const POWER_SCALE = 2;
 function drawPowerup(u) {
   const y = u.y + Math.sin(u.t * 4) * 6, col = { triple: '#ffd23f', rapid: '#ff8a1f', shield: '#4ff0ff', heart: '#ff4f6d' }[u.kind];
-  const g = ctx.createRadialGradient(u.x, y, 4, u.x, y, 30); g.addColorStop(0, col); g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.globalAlpha = 0.5 + 0.2 * Math.sin(u.t * 8); ctx.fillStyle = g; ctx.fillRect(u.x - 30, y - 30, 60, 60); ctx.globalAlpha = 1;
-  ctx.fillStyle = '#1a1230'; ctx.beginPath(); ctx.arc(u.x, y, 16, 0, 7); ctx.fill();
+  ctx.save(); ctx.translate(u.x, y); ctx.scale(POWER_SCALE, POWER_SCALE);
+  const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 30); g.addColorStop(0, col); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.globalAlpha = 0.5 + 0.2 * Math.sin(u.t * 8); ctx.fillStyle = g; ctx.fillRect(-30, -30, 60, 60); ctx.globalAlpha = 1;
+  ctx.fillStyle = '#1a1230'; ctx.beginPath(); ctx.arc(0, 0, 16, 0, 7); ctx.fill();
   ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.stroke();
   ctx.fillStyle = col;
-  if (u.kind === 'heart') drawHeart(u.x, y + 1, 8, col);
-  else if (u.kind === 'shield') { ctx.beginPath(); ctx.arc(u.x, y, 8, 0, 7); ctx.lineWidth = 2.5; ctx.stroke(); }
-  else { ctx.font = `14px ${FONT_D}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(u.kind === 'triple' ? '3x' : '»', u.x, y + 1); }
+  if (u.kind === 'heart') drawHeart(0, 1, 8, col);
+  else if (u.kind === 'shield') { ctx.beginPath(); ctx.arc(0, 0, 8, 0, 7); ctx.lineWidth = 2.5; ctx.stroke(); }
+  else { ctx.font = `14px ${FONT_D}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(u.kind === 'triple' ? '3x' : '»', 0, 1); }
+  ctx.restore();
 }
 function drawHeart(x, y, s, col) {
   ctx.fillStyle = col; ctx.beginPath();
@@ -1621,7 +1624,7 @@ function drawIntroUI() {
   for (let i = 0; i < INTRO.length; i++) { ctx.fillStyle = i === introScene ? k.glow : 'rgba(255,246,232,0.3)'; circ(bx + bw - 76 + i * 18, by + bh - 18, 5); }
   if (introChars >= text.length && Math.floor(clock * 2.5) % 2 === 0) {
     ctx.font = `700 16px ${FONT_B}`; ctx.textAlign = 'right'; ctx.fillStyle = k.glow;
-    ctx.fillText(introScene < INTRO.length - 1 ? 'Tippen ›' : 'Los geht’s ›', bx + bw - 100, by + bh - 12);
+    ctx.fillText(introScene < INTRO.length - 1 ? 'Weiter ›' : 'Los geht’s ›', bx + bw - 100, by + bh - 12);
   }
   const s = SKIP();
   ctx.fillStyle = 'rgba(26,18,48,0.72)'; rr(ctx, s.x, s.y, s.w, s.h, 12); ctx.fill();

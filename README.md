@@ -76,7 +76,7 @@ Musik und Soundeffekte haben je einen eigenen Knopf oben rechts (Note = Musik, L
 ## Inhalt
 
 - Parallax-Stadt mit Tag-Nacht-Wechsel
-- Hindernisse: Werbe-Zeppeline und Kranlasten
+- Hindernisse: Werbe-Zeppeline und Kranlasten (nur der Balken trifft, durch das Seil kann man durchfliegen)
 - Power-ups: Dreifach-Schuss, Schnellfeuer, Schutzschild, Extra-Leben
 - Combo-Multiplikator bis x5 und ein Highscore, der im Browser gespeichert wird
 
