@@ -182,7 +182,7 @@ const sfx = {
 const Music = (() => {
   let A = null, bus = null, lp = null, nbuf = null, curve = null, hardCurve = null, gabberCurve = null, timer = null;
   let active = [], current = null, intensity = 0, duck = false;
-  const stats = { lounge: 0, acid: 0 };
+  const stats = { lounge: 0, anthem: 0 };
   const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
   function attach(actx, dest, live = true) {
@@ -246,14 +246,43 @@ const Music = (() => {
       const c = gainTo(tr.out); env(c, t, 0.0005, v * 0.35, 0.012); osc('square', 1800, t, t + 0.02, c);
     },
     // hardcore/gabber kick: fast pitch drop into a long, distorted tonal tail on A1
-    gabberKick(t, tr, v, len) {
+    gabberKick(t, tr, v, len, f = 55) {
       const g = gainTo(tr.gabber);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.002);
       g.gain.setValueAtTime(v, t + len * 0.55); g.gain.exponentialRampToValueAtTime(0.001, t + len);
       const o = osc('sine', 420, t, t + len + 0.02, g);
-      o.frequency.exponentialRampToValueAtTime(110, t + 0.025); o.frequency.exponentialRampToValueAtTime(55, t + 0.07);
+      o.frequency.exponentialRampToValueAtTime(f * 2, t + 0.025); o.frequency.exponentialRampToValueAtTime(f, t + 0.07);
     },
-    rumbleHit(t, tr, v) { const g = gainTo(tr.crush); env(g, t, 0.004, v, 0.1); const fl = filt('lowpass', 160, 1, g); osc('sine', 48, t, t + 0.16, fl); osc('triangle', 48, t, t + 0.16, fl); },
+    // supersaw lead for the hook: five detuned saws into the lead bus (saturation + echo)
+    lead(t, tr, f, dur, v, cut) {
+      const g = gainTo(tr.leadBus);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.006);
+      g.gain.setValueAtTime(v * 0.8, t + dur); g.gain.exponentialRampToValueAtTime(0.0008, t + dur + 0.09);
+      const fl = filt('lowpass', cut, 2, g); fl.frequency.setValueAtTime(cut * 1.8, t); fl.frequency.exponentialRampToValueAtTime(cut, t + 0.12);
+      for (const d of [-14, -7, 0, 7, 14]) osc('sawtooth', f, t, t + dur + 0.12, fl).detune.value = d;
+    },
+    hoover(t, tr, f, dur, v) {
+      const g = gainTo(tr.grit); env(g, t, 0.01, v, dur + 0.05);
+      const fl = filt('lowpass', 1600, 1, g);
+      for (const d of [-25, 0, 25]) { const o = osc('sawtooth', f * 0.85, t, t + dur + 0.1, fl); o.detune.value = d; o.frequency.exponentialRampToValueAtTime(f, t + 0.09); }
+    },
+    bass(t, tr, f, dur, v) {
+      const g = gainTo(tr.dist); env(g, t, 0.003, v, dur);
+      const fl = filt('lowpass', 700, 3, g); fl.frequency.setValueAtTime(2000, t); fl.frequency.exponentialRampToValueAtTime(700, t + 0.06);
+      osc('sawtooth', f, t, t + dur + 0.05, fl); osc('sine', f, t, t + dur + 0.05, fl);
+    },
+    stab(t, tr, notes, v) {
+      const g = gainTo(tr.out); env(g, t, 0.002, v, 0.09); const fl = filt('lowpass', 2600, 1.5, g);
+      for (const m of notes) for (const d of [-6, 6]) osc('sawtooth', mtof(m), t, t + 0.14, fl).detune.value = d;
+    },
+    pad(t, tr, notes, dur, v) {
+      const g = gainTo(tr.out); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.35);
+      g.gain.setValueAtTime(v, t + dur); g.gain.exponentialRampToValueAtTime(0.0008, t + dur + 0.5);
+      const fl = filt('lowpass', 1400, 0.7, g);
+      for (const m of notes) for (const d of [-10, 10]) osc('sawtooth', mtof(m), t, t + dur + 0.55, fl).detune.value = d;
+    },
+    arp(t, tr, f, v) { const g = gainTo(tr.out); env(g, t, 0.002, v, 0.07); osc('square', f, t, t + 0.1, filt('lowpass', 2800, 1, g)); },
+    ride(t, tr, v) { const g = gainTo(tr.out); env(g, t, 0.001, v, 0.3); noiseSrc(t, 0.35, filt('highpass', 9000, 0.6, g)); },
     snare(t, tr, v) {
       const g = gainTo(tr.out); env(g, t, 0.001, v, 0.12); noiseSrc(t, 0.16, filt('bandpass', 1800, 0.8, g));
       const b = gainTo(tr.out); env(b, t, 0.001, v * 0.7, 0.07); osc('triangle', 200, t, t + 0.1, b).frequency.exponentialRampToValueAtTime(150, t + 0.06);
@@ -276,6 +305,16 @@ const Music = (() => {
   ].map(p => p.split(' ').map(tok => tok === '.' ? null : { n: parseInt(tok, 10), a: tok.includes('!'), s: tok.includes('~') }));
   const CHORDS = [[50, 53, 57, 60, 64], [53, 59, 64, 69], [52, 55, 59, 62], [55, 60, 64, 71]]; // Dm9 G13 Cmaj9 Am9
   const ROOTS = [38, 43, 36, 33];
+  // Hoverboard Anthem: Am - F - C - G, hook as [step, midi note, length in 16ths] per bar
+  const A_ROOTS = [45, 41, 48, 43];
+  const A_TRIADS = [[57, 60, 64], [53, 57, 60], [52, 55, 60], [55, 59, 62]];
+  const HOOK = [
+    [[0, 69, 2], [3, 69, 1], [4, 72, 2], [6, 69, 1], [8, 76, 3], [11, 74, 1], [12, 72, 2], [14, 69, 2]],
+    [[0, 69, 2], [3, 69, 1], [4, 72, 2], [6, 69, 1], [8, 72, 3], [11, 69, 1], [12, 67, 4]],
+    [[0, 76, 2], [3, 76, 1], [4, 74, 2], [6, 72, 1], [8, 74, 3], [11, 72, 1], [12, 71, 2], [14, 67, 2]],
+    [[0, 71, 2], [2, 72, 2], [4, 71, 2], [6, 67, 2], [8, 69, 8]],
+  ];
+  const HOOK_ALT = [[0, 71, 2], [2, 74, 2], [4, 76, 2], [6, 79, 2], [8, 81, 8]];
   const TRACKS = {
     lounge: { bpm: 84, vol: 1.0, step(tr, t, s, sd) {
       const bar = Math.floor(s / 16), i = s % 16, ch = bar % 4, tt = t + (i % 4 === 2 ? sd * 0.33 : 0); // swung offbeats
@@ -290,29 +329,39 @@ const Music = (() => {
       if (i % 2 === 0) I.shaker(tt, tr, i % 4 === 2 ? 0.08 : 0.05);
       if (bar % 2 === 1 && i % 2 === 0 && Math.random() < 0.28) I.vibe(tt, tr, mtof(CHORDS[ch][(Math.random() * CHORDS[ch].length) | 0] + 12), 0.09);
     } },
-    acid: { bpm: 152, vol: 0.3, step(tr, t, s, sd) {
-      const bar = Math.floor(s / 16), i = s % 16, phrase = Math.floor(bar / 8), lastBar = bar % 8 === 7, hot = intensity;
-      const roll = lastBar && i >= 8; // kick and rumble drop out for the snare roll
-      if (i % 4 === 0 && !roll) { I.hardKick(t, tr, 1, hot); I.gabberKick(t, tr, 0.9, sd * 3.6); }
-      // the gabber tail fills the gaps, so the rumble only comes back in boss fights
-      if (hot && i % 4 !== 0 && !roll) I.rumbleHit(t, tr, [0, 0.3, 0.2, 0.14][i % 4]);
-      if (bar >= 1) { I.hat(t, tr, i % 4 === 2 ? 0.07 : 0.045, false); if (i % 4 === 2) I.hat(t, tr, 0.15, true); }
-      if (bar >= 1 && !lastBar && (i === 4 || i === 12)) { I.clap(t, tr, 0.3); I.snare(t, tr, 0.22); }
-      if (lastBar && bar > 0) {
-        if (i === 0) I.riser(t, tr, 16 * sd, 0.18);
-        if (i % (i < 8 ? 2 : 1) === 0) I.snare(t, tr, 0.12 + i * 0.012);
+    anthem: { bpm: 148, vol: 0.25, step(tr, t, s, sd) {
+      const bar = Math.floor(s / 16), i = s % 16, hot = intensity;
+      const b = bar < 64 ? bar : 8 + (bar - 64) % 56; // the intro plays once, then the loop restarts at drop 1
+      const ch = b % 4, root = A_ROOTS[ch], triad = A_TRIADS[ch];
+      let sec = b < 8 ? 'intro' : b < 24 ? 'drop1' : b < 32 ? 'break' : b < 56 ? 'drop2' : 'outro';
+      if (hot) sec = 'drop2'; // mothership: straight to the fullest part
+      const drop = sec === 'drop1' || sec === 'drop2', last8 = b % 8 === 7;
+      // drums and rolling bass
+      if (sec !== 'break') {
+        const fill = last8 && i >= 12;
+        if (i % 4 === 0 && !fill) { I.hardKick(t, tr, 1, hot); I.gabberKick(t, tr, 0.55, sd * 1.4, mtof(root - 12)); }
+        if (i % 4 !== 0 && !fill) I.bass(t, tr, mtof(root), sd * 0.85, [0, 0.5, 0.4, 0.45][i % 4]);
+        if (fill) I.snare(t, tr, 0.14 + (i - 12) * 0.03);
+        if (b >= 2 || sec !== 'intro') { I.hat(t, tr, i % 4 === 2 ? 0.06 : 0.035, false); if (i % 4 === 2) I.hat(t, tr, 0.13, true); }
       }
-      if (i === 0 && bar > 0 && bar % 8 === 0) I.crash(t, tr, 0.22);
-      // filter sweep every 8 bars; boss fights push it wide open
-      const cut = 300 + 1700 * (0.5 - 0.5 * Math.cos(2 * Math.PI * s / 128)) + hot * 1500;
-      const pat = ACID[phrase % 4], nt = pat[i];
-      if (nt) {
-        const prev = pat[(i + 15) % 16];
-        I.acid(t, tr, mtof(45 + nt.n), sd * (nt.s ? 1 : 0.55), 0.42, nt.a, nt.s && prev ? mtof(45 + prev.n) : 0, cut, 20, tr.grit);
-      }
-      if (phrase >= 1 || hot) {
-        const n2 = ACID[(phrase + 1) % 4][(i + 6) % 16];
-        if (n2) I.acid(t, tr, mtof(57 + n2.n), sd * 0.5, hot ? 0.22 : 0.13, n2.a, 0, cut * 1.4, 18, tr.grit);
+      if (drop && (i === 4 || (i === 12 && !last8))) { I.clap(t, tr, 0.28); I.snare(t, tr, 0.18); }
+      if (sec === 'drop2' && i % 4 === 0) I.ride(t, tr, 0.05);
+      if (i === 0 && (b === 8 || b === 16 || b === 32 || b === 40 || b === 48)) I.crash(t, tr, 0.22);
+      if (i === 0 && (b === 7 || b === 31 || b === 63)) I.riser(t, tr, 16 * sd, 0.16);
+      if (b === 31 && i % (i < 8 ? 2 : 1) === 0) I.snare(t, tr, 0.1 + i * 0.012);
+      // harmony
+      if ((sec === 'break' || sec === 'intro') && i === 0) I.pad(t, tr, [...triad, triad[0] + 12], 16 * sd, sec === 'break' ? 0.07 : 0.035);
+      if (drop && i % 4 === 2) I.stab(t, tr, triad.map(m => m + 12), 0.06);
+      if (sec === 'drop2') I.arp(t, tr, mtof(triad[[0, 1, 2, 1][i % 4]] + 24), 0.035);
+      if (sec === 'drop2' && b >= 40 && b < 48) { const nt = ACID[0][i]; if (nt) I.acid(t, tr, mtof(45 + nt.n), sd * 0.5, 0.1, nt.a, 0, 900, 12, tr.grit); }
+      // the hook
+      const alt = sec === 'drop2' && Math.floor(b / 4) % 2 === 1 && ch === 3;
+      for (const [st, m, len] of (alt ? HOOK_ALT : HOOK[ch])) {
+        if (st !== i) continue;
+        if (sec === 'intro') { if (b >= 4) I.lead(t, tr, mtof(m), len * sd * 0.9, 0.09, 900); }
+        else if (sec === 'outro') { if (b % 2 === 0) I.lead(t, tr, mtof(m), len * sd * 0.9, 0.12, 1800); }
+        else I.lead(t, tr, mtof(m), len * sd * 0.92, sec === 'break' ? 0.16 : 0.18, sec === 'break' ? 1500 + (b - 24) * 250 : 3200);
+        if (hot) I.hoover(t, tr, mtof(m - 12), len * sd, 0.14);
       }
     } },
   };
@@ -350,7 +399,11 @@ const Music = (() => {
     const gabber = A.createWaveShaper(), gabLP = A.createBiquadFilter(), gabOut = A.createGain();
     gabber.curve = gabberCurve; gabLP.type = 'lowpass'; gabLP.frequency.value = 3200; gabLP.Q.value = 1.2; gabOut.gain.value = 0.42;
     gabber.connect(gabLP); gabLP.connect(gabOut); gabOut.connect(out);
-    active.push({ name, def, out, dist, crush, grit, gabber, nextT: now + 0.06, step: 0 });
+    const leadBus = A.createGain(), leadSat = A.createWaveShaper(), dly = A.createDelay(1), fb = A.createGain(), wet = A.createGain();
+    leadSat.curve = curve; leadBus.connect(leadSat); leadSat.connect(out);
+    dly.delayTime.value = 60 / def.bpm * 0.75; fb.gain.value = 0.32; wet.gain.value = 0.28;
+    leadSat.connect(dly); dly.connect(fb); fb.connect(dly); dly.connect(wet); wet.connect(out);
+    active.push({ name, def, out, dist, crush, grit, gabber, leadBus, nextT: now + 0.06, step: 0 });
   }
   function mood(d, hot) {
     if (!A) return;
@@ -364,7 +417,7 @@ const Music = (() => {
   return { attach, play, tick, mood, stats, get current() { return current; } };
 })();
 function syncMusic() {
-  let want = state === 'intro' ? 'lounge' : (state === 'play' || state === 'pause' || state === 'quit') ? 'acid' : null;
+  let want = state === 'intro' ? 'lounge' : (state === 'play' || state === 'pause' || state === 'quit') ? 'anthem' : null;
   if (!musicOn) want = null;
   if (Music.current !== want) Music.play(want, want ? 1 : musicOn ? 1.5 : 0.25);
   Music.mood(state === 'pause' || state === 'quit', !!boss || bossWarn > 0);
@@ -413,7 +466,7 @@ let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
 // Keep in sync with VERSION in sw.js; shown on the title screen.
-const APP_VERSION = 'v7';
+const APP_VERSION = 'v8';
 let updateReady = false;
 if (topLevel && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').then(reg => {

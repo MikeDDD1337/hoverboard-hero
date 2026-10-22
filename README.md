@@ -57,7 +57,7 @@ Antippen zeigt den Text sofort ganz bzw. blättert weiter. „Überspringen“ (
 Die Musik wird wie die Soundeffekte direkt im Browser erzeugt (WebAudio-Sequencer, keine Audiodateien):
 
 - **Intro:** ruhige Lounge mit Rhodes-Akkorden (Dm9, G13, Cmaj9, Am9), gezupftem Bass, Besen-Beat und Vibraphon, 84 BPM.
-- **Spiel:** Hard Acid Rave mit 152 BPM: stark verzerrte Bassdrum mit Hardcore-Kick (Gabber-Ausklang auf A), 16tel-Hi-Hats, Clap und Snare, dazu zwei dreckige 303-artige Acid-Linien mit schnellem Filter-Sweep. Alle 8 Takte gibt es einen Snare-Wirbel mit Riser und ein neues Acid-Muster. Bei Mutterschiffen wird die Bassdrum schwerer und das Filter öffnet sich ganz.
+- **Spiel: „Hoverboard Anthem“**, harter Techno mit 148 BPM in a-Moll (Am – F – C – G). Im Mittelpunkt steht eine Ohrwurm-Hook auf einem breiten Supersaw-Lead mit Echo. Darunter liegen eine harte Bassdrum mit Gabber-Schicht, rollender Bass, Offbeat-Akkord-Stabs, Hi-Hats, Clap und Snare. Ablauf: Intro → Drop 1 → Breakdown ohne Bassdrum → Drop 2 mit Hook-Variante, Arpeggio und etwas Acid → Outro, danach wieder ab Drop 1 (eine Runde dauert etwa 1:44 min). Bei Mutterschiffen springt der Track in den vollen Drop, ein Hoover-Synth doppelt die Hook.
 - In der Pause und im Beenden-Dialog wird die Musik leiser und dumpfer, bei Game Over blendet sie aus.
 
 Musik und Soundeffekte haben je einen eigenen Knopf oben rechts (Note = Musik, Lautsprecher = Effekte). Die Spielmusik ist bewusst leiser abgemischt, damit die Effekte gut hörbar bleiben.
