@@ -29,7 +29,7 @@ Die App startet danach im Vollbild und im Querformat. Updates lädt sie selbst: 
 
 ## Figuren
 
-Nach dem Start wählst du deine Figur. Alle spielen sich gleich, nur der Look ist anders. Die Auswahl wird im Browser gespeichert und kann nach jedem Game Over über „Figur wechseln“ geändert werden.
+Nach dem Start wählst du deine Figur. Alle spielen sich gleich, nur der Look ist anders. Die Kids sind in Pixel-Art gezeichnet (30 × 31 Pixel mit dunkler Kontur), der Rest des Spiels bleibt im glatten Grafikstil. Die Auswahl wird im Browser gespeichert und kann nach jedem Game Over über „Figur wechseln“ geändert werden.
 
 | Figur | Look |
 |---|---|

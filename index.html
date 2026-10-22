@@ -440,7 +440,7 @@ const KIDS = [
   { name: 'Louie', skin: '#f2c39b', hair: '#f2cf5b', style: 'short', hat: 'cap', hatCol: '#2f7bff', top: '#e8433a', topDk: '#c4302a', pants: '#2f4a8a', shoes: '#f4f4f4', board: '#1d2b4f', glow: '#4ff0ff', glowRGB: '79,240,255' },
   { name: 'Lina', skin: '#f5cfae', hair: '#f6d77a', style: 'ponytail', hat: 'cap', hatCol: '#ff4fa3', top: '#8e5bd6', topDk: '#6c3fb0', pants: '#2b2350', shoes: '#ff9fd0', board: '#3a1f4a', glow: '#ff6fb5', glowRGB: '255,111,181' },
   { name: 'Noah', skin: '#7a4a2a', hair: '#1f1410', style: 'curly', hat: 'beanie', hatCol: '#3fbf5a', top: '#ffc531', topDk: '#d99a12', pants: '#3a3d55', shoes: '#e8433a', board: '#1f3a2a', glow: '#7dff6a', glowRGB: '125,255,106' },
-  { name: 'Aylin', skin: '#c99068', hair: '#1a1220', style: 'long', hat: 'none', top: '#1fb5a8', topDk: '#14857b', pants: '#2b2350', shoes: '#fff6e8', board: '#4a2a12', glow: '#ff8a1f', glowRGB: '255,138,31' },
+  { name: 'Aylin', skin: '#c99068', hair: '#2a1d33', style: 'long', hat: 'none', top: '#1fb5a8', topDk: '#14857b', pants: '#2b2350', shoes: '#fff6e8', board: '#4a2a12', glow: '#ff8a1f', glowRGB: '255,138,31' },
   { name: 'Jonas', skin: '#f2c8a5', hair: '#d9541e', style: 'spiky', hat: 'helmet', hatCol: '#e8433a', top: '#4caf50', topDk: '#357a38', pants: '#5a4630', shoes: '#2f2f3a', board: '#4a3a10', glow: '#ffd23f', glowRGB: '255,210,63' },
   { name: 'Zoe', skin: '#5c3520', hair: '#1a100c', style: 'puffs', hat: 'none', top: '#ff8a1f', topDk: '#d96a0a', pants: '#2f4a8a', shoes: '#ffd23f', board: '#2c1a4a', glow: '#b26bff', glowRGB: '178,107,255' },
 ];
@@ -468,7 +468,7 @@ let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
 // Keep in sync with VERSION in sw.js; shown on the title screen.
-const APP_VERSION = 'v10';
+const APP_VERSION = 'v11';
 let updateReady = false;
 if (topLevel && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').then(reg => {
@@ -971,70 +971,64 @@ function drawBoardGlow(k) {
   ctx.fillStyle = g; ctx.fillRect(-55, 6, 110, 56);
 }
 function circ(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
-// Draws a kid on the hoverboard around the current origin, facing right (board at y≈28, head at y≈-33).
-function drawKid(k, opts = {}) {
-  const board = opts.board !== false;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  if (board) {
-    ctx.fillStyle = k.board; rr(ctx, -38, 24, 76, 9, 5); ctx.fill();
-    ctx.fillStyle = k.glow; rr(ctx, -30, 32, 60, 3, 1.5); ctx.fill();
-    ctx.fillStyle = k.top; ctx.fillRect(-22, 26, 16, 3); ctx.fillRect(10, 26, 8, 3);
-    // legs, knees bent for balance
-    ctx.strokeStyle = k.pants; ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.moveTo(-5, 2); ctx.lineTo(-14, 13); ctx.lineTo(-12, 22); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(5, 2); ctx.lineTo(13, 12); ctx.lineTo(11, 22); ctx.stroke();
-    ctx.fillStyle = k.shoes; rr(ctx, -19, 19, 13, 6, 3); ctx.fill(); rr(ctx, 6, 19, 13, 6, 3); ctx.fill();
-  } else {
-    // legs, standing
-    ctx.strokeStyle = k.pants; ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.moveTo(-5, 2); ctx.lineTo(-7, 21); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(5, 2); ctx.lineTo(7, 21); ctx.stroke();
-    ctx.fillStyle = k.shoes; rr(ctx, -13, 19, 13, 6, 3); ctx.fill(); rr(ctx, 2, 19, 13, 6, 3); ctx.fill();
-  }
+// ---------- Kids as pixel art: a 30 × 31 grid per kid, drawn once into a small canvas and scaled up sharply ----------
+const SPR_W = 30, SPR_H = 31, SPR_OUT = '#1a1230';
+const SPR_PX = 2.7;                                       // game units per sprite pixel
+const SPR_X = 47 - 28 * SPR_PX, SPR_Y = 24 - 27 * SPR_PX; // puts the blaster muzzle and the board where the game expects them
+const spriteCache = new Map();
+function buildKidSprite(k, board) {
+  const g = Array.from({ length: SPR_H }, () => Array(SPR_W).fill(null));
+  const px = (x, y, w, h, c) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (j >= 0 && j < SPR_H && i >= 0 && i < SPR_W) g[j][i] = c; };
+  // everything sits one row lower so pompom and puffs fit at the top
+  const P = (x, y, w, h, c) => px(x, y + 1, w, h, c);
   // hair behind the head
-  ctx.fillStyle = k.hair;
-  if (k.style === 'ponytail') { ctx.beginPath(); ctx.ellipse(-15, -27 + Math.sin(clock * 6) * 2, 5, 10, 0.5 + Math.sin(clock * 6) * 0.15, 0, 7); ctx.fill(); }
-  else if (k.style === 'long') { rr(ctx, -12, -40, 15, 30, 6); ctx.fill(); }
-  else if (k.style === 'curly') { circ(-7, -36, 6); circ(-9, -28, 5); circ(-4, -42, 6); }
-  else if (k.style === 'spiky') { ctx.beginPath(); ctx.moveTo(-6, -40); ctx.lineTo(-19, -42); ctx.lineTo(-9, -34); ctx.lineTo(-20, -31); ctx.lineTo(-8, -27); ctx.closePath(); ctx.fill(); }
-  else if (k.style === 'puffs') { circ(-6, -45, 8); circ(11, -46, 7.5); }
-  // top (hoodie / jacket / shirt)
-  ctx.fillStyle = k.top; rr(ctx, -12, -23, 24, 28, 8); ctx.fill();
-  ctx.fillStyle = k.topDk; ctx.fillRect(-7, -6, 14, 5);
-  if (k.style !== 'long') { ctx.beginPath(); ctx.arc(-6, -22, 7, Math.PI, 0); ctx.fill(); }
-  // head
-  ctx.fillStyle = k.skin; circ(2, -33, 11);
-  ctx.fillStyle = k.hair;
-  if (k.style === 'short') circ(-6, -31, 5);
-  if (k.hat !== 'cap' && k.hat !== 'helmet') { ctx.beginPath(); ctx.arc(2, -35, 11.5, Math.PI, 0); ctx.fill(); }
-  if (k.style === 'long') { ctx.beginPath(); ctx.moveTo(-9, -40); ctx.quadraticCurveTo(6, -46, 13, -36); ctx.lineTo(4, -38); ctx.closePath(); ctx.fill(); }
-  if (k.style === 'curly') { circ(5, -44, 5.5); circ(11, -40, 4.5); }
+  if (k.style === 'ponytail') { P(4, 5, 3, 2, k.hair); P(3, 7, 2, 4, k.hair); }
+  if (k.style === 'long') P(6, 3, 3, 11, k.hair);
+  if (k.style === 'spiky') { P(3, 3, 4, 1, k.hair); P(4, 5, 3, 1, k.hair); P(5, 7, 2, 1, k.hair); }
+  if (k.style === 'puffs') { P(5, -1, 4, 4, k.hair); P(13, -1, 4, 4, k.hair); }
+  if (k.style === 'curly') P(6, 2, 2, 7, k.hair);
+  // board
+  if (board) { P(3, 26, 21, 2, k.board); P(5, 28, 17, 1, k.glow); P(6, 26, 4, 1, k.top); P(16, 26, 2, 1, k.top); }
+  // legs and shoes
+  P(7, 19, 3, 3, k.pants); P(6, 22, 3, 2, k.pants); P(13, 19, 3, 3, k.pants); P(14, 22, 3, 2, k.pants);
+  P(4, 24, 5, 2, k.shoes); P(13, 24, 5, 2, k.shoes);
+  // torso with hood
+  P(6, 11, 11, 8, k.top); P(6, 11, 2, 8, k.topDk); P(9, 16, 5, 1, k.topDk);
+  if (k.style !== 'long') P(5, 11, 3, 2, k.topDk);
+  // head and face
+  P(8, 3, 8, 8, k.skin); P(16, 6, 1, 2, k.skin);
+  P(12, 5, 2, 2, '#ffffff'); P(13, 5, 1, 2, SPR_OUT); P(13, 9, 2, 1, SPR_OUT);
+  // hair on top and in front
+  if (k.style === 'short') P(8, 3, 2, 4, k.hair);
+  if (k.style === 'ponytail') P(8, 3, 3, 4, k.hair);
+  if (k.style === 'curly') { P(7, 3, 3, 5, k.hair); P(14, 3, 2, 1, k.hair); }
+  if (k.style === 'long') { P(8, 2, 8, 2, k.hair); P(14, 4, 2, 1, k.hair); P(8, 4, 2, 5, k.hair); }
+  if (k.style === 'puffs') { P(8, 2, 8, 2, k.hair); P(8, 4, 2, 3, k.hair); }
   // headwear
-  if (k.hat === 'cap') {
-    ctx.fillStyle = k.hatCol; ctx.beginPath(); ctx.arc(2, -35, 11.5, Math.PI, 0); ctx.fill();
-    rr(ctx, 8, -37, 15, 4, 2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.fillRect(-2, -44, 6, 3);
-  } else if (k.hat === 'band') {
-    ctx.strokeStyle = k.hatCol; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(2, -34, 11, Math.PI * 1.02, -0.15); ctx.stroke();
-  } else if (k.hat === 'beanie') {
-    ctx.fillStyle = k.hatCol; ctx.beginPath(); ctx.arc(2, -36, 12, Math.PI, 0); ctx.fill();
-    ctx.fillStyle = '#2b8a42'; rr(ctx, -10.5, -38, 25, 5, 2); ctx.fill();
-    ctx.fillStyle = '#fff6e8'; circ(2, -49, 3.5);
-  } else if (k.hat === 'helmet') {
-    ctx.fillStyle = k.hatCol; ctx.beginPath(); ctx.arc(2, -35, 13, Math.PI, 0); ctx.fill();
-    ctx.fillStyle = '#fff6e8'; ctx.fillRect(-1, -48, 5, 12);
-    ctx.fillStyle = '#1a1230'; rr(ctx, -11, -36, 27, 3.5, 1.5); ctx.fill();
+  if (k.hat === 'cap') { P(8, 1, 8, 3, k.hatCol); P(16, 3, 3, 1, k.hatCol); P(10, 1, 2, 1, '#ffffff'); }
+  if (k.hat === 'beanie') { P(7, 0, 9, 3, k.hatCol); P(7, 3, 9, 1, '#2b8a42'); P(10, -1, 3, 1, '#fff6e8'); }
+  if (k.hat === 'helmet') { P(7, 0, 9, 4, k.hatCol); P(10, 0, 2, 4, '#fff6e8'); P(8, 4, 9, 1, SPR_OUT); }
+  // arm and dart blaster (same blaster for every kid)
+  P(13, 13, 6, 2, k.top); P(18, 14, 2, 2, k.skin);
+  P(17, 11, 9, 3, '#ff8a1f'); P(26, 12, 2, 2, '#ffd23f'); P(19, 10, 4, 1, '#ffd23f'); P(19, 14, 2, 2, '#2f7bff');
+  // 1-pixel dark outline around everything
+  const c = document.createElement('canvas'); c.width = SPR_W; c.height = SPR_H;
+  const g2 = c.getContext('2d');
+  for (let y = 0; y < SPR_H; y++) for (let x = 0; x < SPR_W; x++) {
+    let col = g[y][x];
+    if (!col && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => g[y + dy] && g[y + dy][x + dx])) col = SPR_OUT;
+    if (col) { g2.fillStyle = col; g2.fillRect(x, y, 1, 1); }
   }
-  // face
-  ctx.fillStyle = '#fff'; circ(8.5, -32, 2.7);
-  ctx.fillStyle = '#1a1230'; circ(9.2, -32, 1.6);
-  ctx.strokeStyle = '#1a1230'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(8, -28, 3, 0.2, 1.4); ctx.stroke();
-  // arm + dart blaster (same blaster for every kid)
-  ctx.strokeStyle = k.top; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(15, -10); ctx.stroke();
-  ctx.fillStyle = '#ff8a1f'; rr(ctx, 12, -18, 28, 11, 3); ctx.fill();
-  ctx.fillStyle = '#ffd23f'; ctx.fillRect(38, -16, 9, 7); ctx.fillRect(18, -21, 12, 3);
-  ctx.fillStyle = '#2f7bff'; rr(ctx, 16, -9, 7, 10, 2); ctx.fill();
-  ctx.fillStyle = k.skin; circ(17, -9, 3.5);
+  return c;
+}
+// Draws a kid around the current origin, facing right; with the board by default, standing on the floor with { board: false }.
+function drawKid(k, opts = {}) {
+  const board = opts.board !== false, key = k.name + (board ? '+board' : '');
+  if (!spriteCache.has(key)) spriteCache.set(key, buildKidSprite(k, board));
+  const smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(spriteCache.get(key), SPR_X, SPR_Y, SPR_W * SPR_PX, SPR_H * SPR_PX);
+  ctx.imageSmoothingEnabled = smooth;
 }
 function drawDart(d) {
   ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(Math.atan2(d.vy, d.vx));
