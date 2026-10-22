@@ -254,12 +254,14 @@ const Music = (() => {
       o.frequency.exponentialRampToValueAtTime(f * 2, t + 0.025); o.frequency.exponentialRampToValueAtTime(f, t + 0.07);
     },
     // supersaw lead for the hook: five detuned saws into the lead bus (saturation + echo)
+    // soft pluck for the hook: two detuned triangles and a quiet sine an octave down, decaying, no distortion
     lead(t, tr, f, dur, v, cut) {
-      const g = gainTo(tr.leadBus);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.006);
-      g.gain.setValueAtTime(v * 0.8, t + dur); g.gain.exponentialRampToValueAtTime(0.0008, t + dur + 0.09);
-      const fl = filt('lowpass', cut, 2, g); fl.frequency.setValueAtTime(cut * 1.8, t); fl.frequency.exponentialRampToValueAtTime(cut, t + 0.12);
-      for (const d of [-14, -7, 0, 7, 14]) osc('sawtooth', f, t, t + dur + 0.12, fl).detune.value = d;
+      const g = gainTo(tr.leadBus), d = Math.min(dur, 0.5);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(v * 0.35, t + 0.14); g.gain.exponentialRampToValueAtTime(0.0008, t + d + 0.25);
+      const fl = filt('lowpass', Math.min(cut, 1600), 0.7, g);
+      for (const dt of [-8, 8]) osc('triangle', f, t, t + d + 0.3, fl).detune.value = dt;
+      const sub = gainTo(fl); sub.gain.value = 0.35; osc('sine', f / 2, t, t + d + 0.3, sub);
     },
     hoover(t, tr, f, dur, v) {
       const g = gainTo(tr.grit); env(g, t, 0.01, v, dur + 0.05);
@@ -358,10 +360,10 @@ const Music = (() => {
       const alt = sec === 'drop2' && Math.floor(b / 4) % 2 === 1 && ch === 3;
       for (const [st, m, len] of (alt ? HOOK_ALT : HOOK[ch])) {
         if (st !== i) continue;
-        if (sec === 'intro') { if (b >= 4) I.lead(t, tr, mtof(m), len * sd * 0.9, 0.09, 900); }
-        else if (sec === 'outro') { if (b % 2 === 0) I.lead(t, tr, mtof(m), len * sd * 0.9, 0.12, 1800); }
-        else I.lead(t, tr, mtof(m), len * sd * 0.92, sec === 'break' ? 0.16 : 0.18, sec === 'break' ? 1500 + (b - 24) * 250 : 3200);
-        if (hot) I.hoover(t, tr, mtof(m - 12), len * sd, 0.14);
+        if (sec === 'intro') { if (b >= 4) I.lead(t, tr, mtof(m), len * sd * 0.9, 0.22, 900); }
+        else if (sec === 'outro') { if (b % 2 === 0) I.lead(t, tr, mtof(m), len * sd * 0.9, 0.3, 1800); }
+        else I.lead(t, tr, mtof(m), len * sd * 0.92, sec === 'break' ? 0.36 : 0.45, sec === 'break' ? 1500 + (b - 24) * 250 : 3200);
+        if (hot) I.hoover(t, tr, mtof(m - 12), len * sd, 0.1);
       }
     } },
   };
@@ -400,7 +402,7 @@ const Music = (() => {
     gabber.curve = gabberCurve; gabLP.type = 'lowpass'; gabLP.frequency.value = 3200; gabLP.Q.value = 1.2; gabOut.gain.value = 0.42;
     gabber.connect(gabLP); gabLP.connect(gabOut); gabOut.connect(out);
     const leadBus = A.createGain(), leadSat = A.createWaveShaper(), dly = A.createDelay(1), fb = A.createGain(), wet = A.createGain();
-    leadSat.curve = curve; leadBus.connect(leadSat); leadSat.connect(out);
+    leadBus.connect(leadSat); leadSat.connect(out); // no curve: clean pass-through
     dly.delayTime.value = 60 / def.bpm * 0.75; fb.gain.value = 0.32; wet.gain.value = 0.28;
     leadSat.connect(dly); dly.connect(fb); fb.connect(dly); dly.connect(wet); wet.connect(out);
     active.push({ name, def, out, dist, crush, grit, gabber, leadBus, nextT: now + 0.06, step: 0 });
@@ -466,7 +468,7 @@ let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
 // Keep in sync with VERSION in sw.js; shown on the title screen.
-const APP_VERSION = 'v9';
+const APP_VERSION = 'v10';
 let updateReady = false;
 if (topLevel && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').then(reg => {
@@ -500,6 +502,12 @@ const pointers = new Map();
 let mouseDown = false;
 const BTN = () => ({ pause: { x: W - 62, y: 14, w: 46, h: 46 }, quit: { x: W - 116, y: 14, w: 46, h: 46 }, mute: { x: W - 170, y: 14, w: 46, h: 46 }, music: { x: W - 224, y: 14, w: 46, h: 46 } });
 const DLG = () => ({ resume: { x: W / 2 - 205, y: 300, w: 190, h: 54 }, end: { x: W / 2 + 15, y: 300, w: 190, h: 54 } });
+let exitHint = 0; // seconds the "how to close" hint stays on the title screen
+function leaveApp() {
+  state = 'title';
+  try { window.close(); } catch (e) {}
+  setTimeout(() => { exitHint = 5; }, 300); // still here: the browser did not allow closing
+}
 function quitToTitle() {
   if (score > best) { best = score; try { localStorage.setItem('hh-best', String(best)); } catch (e) {} }
   reset(); state = 'title'; pointers.clear(); mouseDown = false;
@@ -520,6 +528,11 @@ cvs.addEventListener('pointerdown', e => {
   const p = toLogical(e), b = BTN();
   if (inBox(p, b.mute)) { setMuted(!muted); return; }
   if (inBox(p, b.music)) { setMusic(!musicOn); return; }
+  if (state === 'exit') { const d = DLG(); if (inBox(p, d.end)) leaveApp(); else if (inBox(p, d.resume)) state = 'title'; return; }
+  if (inBox(p, b.quit) && (state === 'title' || state === 'select' || state === 'intro' || state === 'over')) {
+    if (state === 'title') state = 'exit'; else if (state === 'over') quitToTitle(); else { parts = []; state = 'title'; }
+    return;
+  }
   if (state === 'intro') { if (inBox(p, SKIP())) startGame(); else introAdvance(); return; }
   if (state === 'title') {
     if (showInstallButton() && inBox(p, INSTALL())) { installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; }); return; }
@@ -563,6 +576,9 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyM') setMusic(!musicOn);
   if (e.code === 'KeyN') setMuted(!muted);
   if (state === 'quit' && (e.code === 'Escape' || e.code === 'Enter')) { state = 'play'; return; }
+  if (state === 'exit') { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'KeyQ') state = 'title'; return; }
+  if (e.code === 'KeyQ' && state === 'title') { state = 'exit'; return; }
+  if (e.code === 'KeyQ' && (state === 'select' || state === 'intro' || state === 'over')) { if (state === 'over') quitToTitle(); else { parts = []; state = 'title'; } return; }
   if (e.code === 'KeyQ' && (state === 'play' || state === 'pause')) { state = 'quit'; return; }
   if (e.code === 'KeyP' || e.code === 'Escape') { if (state === 'play') state = 'pause'; else if (state === 'pause') state = 'play'; }
   const go = e.code === 'Enter' || e.code === 'Space';
@@ -712,6 +728,7 @@ function rectHit(px, py, pr, x, y, w, h) { const cx = clamp(px, x, x + w), cy = 
 // ---------- Update ----------
 function update(dt) {
   clock += dt;
+  exitHint = Math.max(0, exitHint - dt);
   if (state === 'pause' || state === 'quit') return;
   const scroll = state === 'play' ? speed : 170;
   dist += scroll * dt; skyClock += dt;
@@ -727,7 +744,7 @@ function update(dt) {
     parts.push({ x: P.x + rand(-28, 28), y: P.y + 36 + P.bob, vx: -scroll * 0.6 + rand(-20, 20), vy: rand(10, 50), life: rand(0.2, 0.45), max: 0.45, size: rand(2, 4.5), color: pick([KIDS[kidIdx].glow, KIDS[kidIdx].glow, '#ffffff']), grav: 0 });
   }
 
-  if (state === 'title') { P.x = 220 + Math.sin(clock * 0.7) * 30; P.y = 300 + Math.sin(clock * 1.3) * 34; P.tilt = Math.cos(clock * 1.3) * 0.08; return; }
+  if (state === 'title' || state === 'exit') { P.x = 220 + Math.sin(clock * 0.7) * 30; P.y = 300 + Math.sin(clock * 1.3) * 34; P.tilt = Math.cos(clock * 1.3) * 0.08; return; }
   if (state === 'select') return;
   if (state === 'intro') { updateIntro(dt); return; }
   if (state === 'over') { overT += dt; return; }
@@ -1309,10 +1326,11 @@ function drawTitle() {
   } else if (showIOSHint()) {
     textOut('Als App: Teilen  →  „Zum Home-Bildschirm“', 24, H - 40, 16, '#9ff7ff', FONT_B);
   }
-  const b = BTN(); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
+  const b = BTN(); drawButton(b.quit, 'quit'); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
 }
 function drawOver() {
   dim(0.55);
+  const bt = BTN(); drawButton(bt.quit, 'quit'); drawButton(bt.mute, 'mute'); drawButton(bt.music, 'music');
   textOut('GAME OVER', W / 2, 180, 64, '#ff4f6d', FONT_D, 'center');
   textOut('Punkte: ' + score.toLocaleString('de-CH'), W / 2, 240, 30, '#fff6e8', FONT_B, 'center');
   if (newBest) textOut('NEUER REKORD!', W / 2, 284, 26, '#ffd23f', FONT_D, 'center');
@@ -1349,9 +1367,9 @@ function drawSelect() {
   ctx.strokeStyle = '#1a1230'; ctx.lineWidth = 3; ctx.stroke();
   textOut('LOS!', 0, 11, 30, '#fff6e8', FONT_D, 'center');
   ctx.restore();
-  const b = BTN(); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
+  const b = BTN(); drawButton(b.quit, 'quit'); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
 }
-function drawDialog(title, sub) {
+function drawDialog(title, sub, yes = 'Weiterspielen', no = 'Beenden') {
   dim(0.55);
   ctx.fillStyle = 'rgba(26,18,48,0.94)'; rr(ctx, W / 2 - 250, 140, 500, 250, 22); ctx.fill();
   ctx.strokeStyle = 'rgba(255,246,232,0.25)'; ctx.lineWidth = 2; ctx.stroke();
@@ -1361,11 +1379,21 @@ function drawDialog(title, sub) {
   ctx.fillStyle = '#4ff0ff'; rr(ctx, d.resume.x, d.resume.y, d.resume.w, d.resume.h, 14); ctx.fill();
   ctx.fillStyle = '#ff4f6d'; rr(ctx, d.end.x, d.end.y, d.end.w, d.end.h, 14); ctx.fill();
   ctx.font = `700 21px ${FONT_B}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#1a1230'; ctx.fillText('Weiterspielen', d.resume.x + d.resume.w / 2, d.resume.y + d.resume.h / 2 + 1);
-  ctx.fillStyle = '#fff6e8'; ctx.fillText('Beenden', d.end.x + d.end.w / 2, d.end.y + d.end.h / 2 + 1);
+  ctx.fillStyle = '#1a1230'; ctx.fillText(yes, d.resume.x + d.resume.w / 2, d.resume.y + d.resume.h / 2 + 1);
+  ctx.fillStyle = '#fff6e8'; ctx.fillText(no, d.end.x + d.end.w / 2, d.end.y + d.end.h / 2 + 1);
 }
 function drawPause() { drawDialog('PAUSE', 'Punkte: ' + score.toLocaleString('de-CH')); }
 function drawQuit() { drawDialog('RUNDE BEENDEN?', 'Deine Punkte zählen für den Rekord.'); }
+function drawExit() { drawDialog('SPIEL VERLASSEN?', 'Bis zum nächsten Mal!', 'Abbrechen', 'Verlassen'); }
+function drawExitHint() {
+  ctx.globalAlpha = Math.min(1, exitHint);
+  const w = Math.min(W - 40, 640), x = (W - w) / 2;
+  ctx.fillStyle = 'rgba(26,18,48,0.92)'; rr(ctx, x, H - 120, w, 54, 14); ctx.fill();
+  ctx.strokeStyle = '#4ff0ff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.font = `600 18px ${FONT_B}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff6e8';
+  ctx.fillText('Zum Schliessen: Übersicht öffnen und die App wegwischen.', W / 2, H - 92);
+  ctx.globalAlpha = 1;
+}
 
 function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1396,7 +1424,9 @@ function render() {
   ctx.restore();
   if (hurtFlash > 0) { ctx.fillStyle = `rgba(255,60,60,${hurtFlash * 0.8})`; ctx.fillRect(0, 0, W, H); }
   if (state === 'play' || state === 'pause' || state === 'quit') drawHUD();
-  if (state === 'title') drawTitle();
+  if (state === 'title' || state === 'exit') drawTitle();
+  if (state === 'exit') drawExit();
+  if (exitHint > 0 && state === 'title') drawExitHint();
   else if (state === 'over') drawOver();
   else if (state === 'select') drawSelect();
   else if (state === 'pause') drawPause();
@@ -1631,7 +1661,7 @@ function drawIntroUI() {
   ctx.strokeStyle = 'rgba(255,246,232,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
   ctx.font = `700 17px ${FONT_B}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff6e8';
   ctx.fillText('Überspringen ›', s.x + s.w / 2, s.y + s.h / 2 + 1);
-  const b = BTN(); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
+  const b = BTN(); drawButton(b.quit, 'quit'); drawButton(b.mute, 'mute'); drawButton(b.music, 'music');
 }
 
 // ---------- Loop ----------

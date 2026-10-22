@@ -57,7 +57,7 @@ Antippen zeigt den Text sofort ganz bzw. blättert weiter. „Überspringen“ (
 Die Musik wird wie die Soundeffekte direkt im Browser erzeugt (WebAudio-Sequencer, keine Audiodateien):
 
 - **Intro:** ruhige Lounge mit Rhodes-Akkorden (Dm9, G13, Cmaj9, Am9), gezupftem Bass, Besen-Beat und Vibraphon, 84 BPM.
-- **Spiel: „Hoverboard Anthem“**, harter Techno mit 148 BPM in a-Moll (Am – F – C – G). Im Mittelpunkt steht eine Ohrwurm-Hook auf einem breiten Supersaw-Lead mit Echo. Darunter liegen eine harte Bassdrum mit Gabber-Schicht, rollender Bass, Offbeat-Akkord-Stabs, Hi-Hats, Clap und Snare. Ablauf: Intro → Drop 1 → Breakdown ohne Bassdrum → Drop 2 mit Hook-Variante, Arpeggio und etwas Acid → Outro, danach wieder ab Drop 1 (eine Runde dauert etwa 1:44 min). Bei Mutterschiffen springt der Track in den vollen Drop, ein Hoover-Synth doppelt die Hook.
+- **Spiel: „Hoverboard Anthem“**, harter Techno mit 148 BPM in a-Moll (Am – F – C – G). Im Mittelpunkt steht eine Ohrwurm-Hook auf einem weichen Pluck-Klang mit Echo, der im Drop bewusst etwas hinter dem Beat liegt. Darunter liegen eine harte Bassdrum mit Gabber-Schicht, rollender Bass, Offbeat-Akkord-Stabs, Hi-Hats, Clap und Snare. Ablauf: Intro → Drop 1 → Breakdown ohne Bassdrum → Drop 2 mit Hook-Variante, Arpeggio und etwas Acid → Outro, danach wieder ab Drop 1 (eine Runde dauert etwa 1:44 min). Bei Mutterschiffen springt der Track in den vollen Drop, ein Hoover-Synth doppelt die Hook.
 - In der Pause und im Beenden-Dialog wird die Musik leiser und dumpfer, bei Game Over blendet sie aus.
 
 Musik und Soundeffekte haben je einen eigenen Knopf oben rechts (Note = Musik, Lautsprecher = Effekte). Die Spielmusik ist bewusst leiser abgemischt, damit die Effekte gut hörbar bleiben.
@@ -69,7 +69,7 @@ Musik und Soundeffekte haben je einen eigenen Knopf oben rechts (Note = Musik, L
 | Fliegen | Linke Bildschirmhälfte: Daumen ziehen | Maus bewegen oder WASD / Pfeiltasten |
 | Schiessen | Rechte Bildschirmhälfte: gedrückt halten | Klicken oder Leertaste |
 | Pause | Pause-Knopf oben rechts | P oder Esc |
-| Runde beenden | ✕-Knopf oben rechts, dann „Beenden“ | Q, dann Klick auf „Beenden“ |
+| Runde beenden / zurück | ✕-Knopf oben rechts (auf jedem Bildschirm). Im Spiel mit Rückfrage, auf dem Startbildschirm „Spiel verlassen?“ | Q |
 | Musik an/aus | Noten-Knopf | M |
 | Soundeffekte an/aus | Lautsprecher-Knopf | N |
 
